@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0
 
 obj-m 		:= ibstrace.o
 ibstrace-y 	:= apic.o nmi.o fops.o main.o

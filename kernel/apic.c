@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 
 #include <asm/apic.h>
 #include <asm/apicdef.h>

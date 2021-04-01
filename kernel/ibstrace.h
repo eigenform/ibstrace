@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+
 #ifndef _IBSTRACE_H
 #define _IBSTRACE_H
 
