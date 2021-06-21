@@ -3,33 +3,27 @@
 #include <linux/module.h>
 #include <linux/proc_fs.h>
 #include <linux/slab.h>
+#include <linux/vmalloc.h>
+#include <linux/kallsyms.h>
+#include <linux/kprobes.h>
 
 #include "ibstrace.h"
 #include "apic.h"
 #include "fops.h"
 
-#include <linux/kallsyms.h>
-#include <linux/kprobes.h>
+#define TARGET_CPU 4
+
+#define SAMPLE_BUFFER_PAGES		256
+#define SAMPLE_BUFFER_SIZE		(SAMPLE_BUFFER_PAGES * PAGE_SIZE)
+
+#define CODE_BUFFER_PAGES		32
+#define CODE_BUFFER_SIZE		(CODE_BUFFER_PAGES * PAGE_SIZE)
+
+struct sample *sample_buf = NULL;
+u8 *code_buf = NULL;
 
 static int (*set_memory_x)(unsigned long, int) = NULL;
 static int (*set_memory_nx)(unsigned long, int) = NULL;
-static unsigned long find_symbol(const char* name)
-{
-	int res;
-	struct kprobe kp = { .symbol_name = name };
-
-	res = register_kprobe(&kp);
-	if (res < 0)
-		return 0;
-
-	unregister_kprobe(&kp);
-	pr_info("ibstrace: found %s at %p\n", name, (void*)kp.addr);
-	return (unsigned long)kp.addr;
-}
-
-#define TARGET_CPU		4
-#define SAMPLE_BUFFER_SIZE	(4 * 1024 * 1024)
-#define CODE_BUFFER_SIZE	(1 * 1024 * 1024)
 
 static struct proc_dir_entry *procfs_entry;
 static const struct proc_ops ibstrace_fops = {
@@ -37,54 +31,76 @@ static const struct proc_ops ibstrace_fops = {
 	.proc_read	= ibstrace_read,
 };
 
-struct ibstrace_state global_state = {
-	.sample_buffer	= NULL,
-	.user_code	= NULL,
-};
-
-
-static void trampoline(void)
+// Hack to resolve the address of some symbol via kprobes.
+static u64 find_symbol(const char* name)
 {
+	int res;
+	struct kprobe kp = { .symbol_name = name };
+	u64 addr = 0;
+
+	res = register_kprobe(&kp);
+	if (res < 0)
+		return 0;
+
+	pr_info("ibstrace: found %s at %px\n", name, (void*)kp.addr);
+	addr = (u64)kp.addr;
+
+	unregister_kprobe(&kp);
+	return addr;
+}
+
+static void trampoline(void *info)
+{
+	int cpu = get_cpu();
+	pr_info("ibstrace: trampoline CPU #%d\n", cpu);
+
+	void (*func)(void);
+	func = (void(*)(void))code_buf;
+	func();
+
+	put_cpu();
+
 }
 
 static __init int ibstrace_init(void)
 {
-	int err;
+	// We have to resolve these symbols in order to set pages as executable
 	set_memory_x = (void*)find_symbol("set_memory_x");
 	set_memory_nx = (void*)find_symbol("set_memory_nx");
+	if ((set_memory_x == NULL) || (set_memory_nx == NULL)) {
+		pr_err("ibstrace: couldn't resolve symbols\n");
+		return -1;
+	}
 
-	// Allocate for user code, poison with INT3, mark executable
-	global_state.user_code = kmalloc(1024, GFP_KERNEL);
-	memset(global_state.user_code, 0xcc, 1024);
-	set_memory_x(global_state.user_code, 1024 / PAGE_SIZE);
+	// Make a procfs entry
+	procfs_entry = proc_create("ibstrace", 0, NULL, &ibstrace_fops);
+	if (!procfs_entry) {
+		pr_err("ibstrace: couldn't create procfs entry\n");
+		return -1;
+	}
 
-	global_state.sample_buffer = kmalloc(1024 * 1024, GFP_KERNEL);
+	code_buf = vmalloc(CODE_BUFFER_SIZE);
+	sample_buf = vmalloc(SAMPLE_BUFFER_SIZE);
+	set_memory_x((unsigned long)code_buf, CODE_BUFFER_PAGES);
 
+	pr_info("ibstrace: code_buf=%px (%ld)\n", code_buf, CODE_BUFFER_SIZE);
+	pr_info("ibstrace: sample_buf=%px (%ld)\n", sample_buf, SAMPLE_BUFFER_SIZE);
 
 	// Initialize the local APIC for the target CPU
 	smp_call_function_single(TARGET_CPU, ibs_apic_init, NULL, 1);
 
-	// Create a procfs entry
-	procfs_entry = proc_create("ibstrace", 0, NULL, &ibstrace_fops);
-	if (!procfs_entry) {
-		pr_err("ibstrace: couldn't create procfs entry\n");
-		goto ng_apic;
-	}
-
-ok:
 	return 0;
-ng_apic:
-	smp_call_function_single(TARGET_CPU, ibs_apic_exit, NULL, 1);
-	return -1;
 }
 
 static __exit void ibstrace_exit(void)
 {
-	set_memory_nx(global_state.user_code, 1024 / PAGE_SIZE);
-	kfree(global_state.user_code);
-	kfree(global_state.sample_buffer);
+	set_memory_nx((unsigned long)code_buf, CODE_BUFFER_PAGES);
+	vfree(code_buf);
+	vfree(sample_buf);
+
 	smp_call_function_single(TARGET_CPU, ibs_apic_exit, NULL, 1);
 	proc_remove(procfs_entry);
+
 	pr_info("ibstrace: unloaded module\n");
 }
 
