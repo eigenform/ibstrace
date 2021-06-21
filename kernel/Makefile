@@ -5,8 +5,11 @@ ibstrace-y 	:= apic.o nmi.o fops.o main.o
 KMOD_DIR 	:= /lib/modules/$(shell uname -r)/build
 
 CFLAGS 		+= -g -I$(CURDIR)/
+QEMU_CFLAGS += -g -DQEMU_BUILD=1 -I$(CURDIR)/
 
-all:
+prod:
 	$(MAKE) -C $(KMOD_DIR) M=$(CURDIR) CFLAGS="$(CFLAGS)"
+qemu:
+	$(MAKE) -C $(KMOD_DIR) M=$(CURDIR) CFLAGS="$(QEMU_CFLAGS)"
 clean:
 	$(MAKE) -C $(KMOD_DIR) M=$(CURDIR) clean

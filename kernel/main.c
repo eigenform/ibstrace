@@ -13,12 +13,6 @@
 
 #define TARGET_CPU 4
 
-#define SAMPLE_BUFFER_PAGES		256
-#define SAMPLE_BUFFER_SIZE		(SAMPLE_BUFFER_PAGES * PAGE_SIZE)
-
-#define CODE_BUFFER_PAGES		32
-#define CODE_BUFFER_SIZE		(CODE_BUFFER_PAGES * PAGE_SIZE)
-
 struct sample *sample_buf = NULL;
 u8 *code_buf = NULL;
 
@@ -32,7 +26,7 @@ static const struct proc_ops ibstrace_fops = {
 };
 
 // Hack to resolve the address of some symbol via kprobes.
-static u64 find_symbol(const char* name)
+static u64 kprobe_resolve_sym(const char* name)
 {
 	int res;
 	struct kprobe kp = { .symbol_name = name };
@@ -65,14 +59,13 @@ static void trampoline(void *info)
 static __init int ibstrace_init(void)
 {
 	// We have to resolve these symbols in order to set pages as executable
-	set_memory_x = (void*)find_symbol("set_memory_x");
-	set_memory_nx = (void*)find_symbol("set_memory_nx");
+	set_memory_x = (void*)kprobe_resolve_sym("set_memory_x");
+	set_memory_nx = (void*)kprobe_resolve_sym("set_memory_nx");
 	if ((set_memory_x == NULL) || (set_memory_nx == NULL)) {
 		pr_err("ibstrace: couldn't resolve symbols\n");
 		return -1;
 	}
 
-	// Make a procfs entry
 	procfs_entry = proc_create("ibstrace", 0, NULL, &ibstrace_fops);
 	if (!procfs_entry) {
 		pr_err("ibstrace: couldn't create procfs entry\n");
@@ -86,8 +79,10 @@ static __init int ibstrace_init(void)
 	pr_info("ibstrace: code_buf=%px (%ld)\n", code_buf, CODE_BUFFER_SIZE);
 	pr_info("ibstrace: sample_buf=%px (%ld)\n", sample_buf, SAMPLE_BUFFER_SIZE);
 
+#ifndef QEMU_BUILD
 	// Initialize the local APIC for the target CPU
 	smp_call_function_single(TARGET_CPU, ibs_apic_init, NULL, 1);
+#endif
 
 	return 0;
 }
@@ -98,7 +93,10 @@ static __exit void ibstrace_exit(void)
 	vfree(code_buf);
 	vfree(sample_buf);
 
+#ifndef QEMU_BUILD
+	// Revert our APIC setup on the target CPU
 	smp_call_function_single(TARGET_CPU, ibs_apic_exit, NULL, 1);
+#endif 
 	proc_remove(procfs_entry);
 
 	pr_info("ibstrace: unloaded module\n");
