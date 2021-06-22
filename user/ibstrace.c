@@ -1,11 +1,20 @@
+#include <stdint.h>
 #include <stdlib.h>
-#include <sys/stat.h>
+#include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <stdio.h>
-#include <stdint.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
+
+#include <ibstrace.h>
+
+#define IBSTRACE_CHARDEV "/dev/ibstrace"
 
 static uint8_t *input_buf = NULL;
+static struct ibstrace_msg msg = {
+	.ptr = NULL,
+	.len = 0,
+};
 
 int main(int argc, char *argv[]) {
 	struct stat st;
@@ -30,13 +39,17 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 
-	// Submit input buffer to the kernel
-	ibs_fd = open("/proc/ibstrace", O_RDWR);
+	// Submit message to driver
+	msg.ptr = input_buf;
+	msg.len = st.st_size;
+	ibs_fd = open(IBSTRACE_CHARDEV, O_RDWR);
 	if (ibs_fd < 0) {
-		printf("Couldn't open /proc/ibstrace (are you root?)\n");
+		printf("Couldn't open %s (are you root?)\n", IBSTRACE_CHARDEV);
 		return -1;
 	}
-	write(ibs_fd, input_buf, st.st_size);
-	close(ibs_fd);
 
+	res = ioctl(ibs_fd, IBSTRACE_CMD_WRITE, &msg);
+	printf("ioctl() returned %d\n", res);
+
+	close(ibs_fd);
 }

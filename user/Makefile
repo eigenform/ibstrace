@@ -1,8 +1,9 @@
 SRC 	:= ibstrace.c
 OUT 	:= ibstrace
+CFLAGS 	:= -I$(CURDIR)/../include
 
 all:
-	gcc $(SRC) -o $(OUT)
+	gcc $(CFLAGS) $(SRC) -o $(OUT)
 
 clean:
 	rm -fv $(OUT)

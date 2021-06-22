@@ -12,9 +12,11 @@
 #define CODE_BUFFER_SIZE		(CODE_BUFFER_PAGES * PAGE_SIZE)
 
 
-ssize_t ibstrace_write(struct file *file, const char __user *buf, 
-		size_t count, loff_t *ppos);
-ssize_t ibstrace_read(struct file *file, char __user *buf, 
-		size_t count, loff_t *ppos);
+//ssize_t ibstrace_write(struct file *file, const char __user *buf, 
+//		size_t count, loff_t *ppos);
+//ssize_t ibstrace_read(struct file *file, char __user *buf, 
+//		size_t count, loff_t *ppos);
+
+long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
 
 #endif // _FOPS_H

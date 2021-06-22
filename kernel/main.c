@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0
 
 #include <linux/module.h>
-#include <linux/proc_fs.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
+
 #include <linux/kallsyms.h>
 #include <linux/kprobes.h>
+
+#include <linux/device.h>
+#include <linux/miscdevice.h>
 
 #include "ibstrace.h"
 #include "apic.h"
@@ -13,17 +16,26 @@
 
 #define TARGET_CPU 4
 
+
 struct sample *sample_buf = NULL;
+
 u8 *code_buf = NULL;
+static DEFINE_MUTEX(code_buf_mutex);
 
 static int (*set_memory_x)(unsigned long, int) = NULL;
 static int (*set_memory_nx)(unsigned long, int) = NULL;
 
-static struct proc_dir_entry *procfs_entry;
-static const struct proc_ops ibstrace_fops = {
-	.proc_write	= ibstrace_write,
-	.proc_read	= ibstrace_read,
+
+static const struct file_operations ibstrace_fops = {
+	.owner				= THIS_MODULE,
+	.unlocked_ioctl		= ibstrace_ioctl,
 };
+static struct miscdevice ibstrace_dev = {
+	.minor				= MISC_DYNAMIC_MINOR,
+	.name				= "ibstrace",
+	.fops				= &ibstrace_fops,
+};
+
 
 // Hack to resolve the address of some symbol via kprobes.
 static u64 kprobe_resolve_sym(const char* name)
@@ -43,18 +55,18 @@ static u64 kprobe_resolve_sym(const char* name)
 	return addr;
 }
 
-static void trampoline(void *info)
-{
-	int cpu = get_cpu();
-	pr_info("ibstrace: trampoline CPU #%d\n", cpu);
-
-	void (*func)(void);
-	func = (void(*)(void))code_buf;
-	func();
-
-	put_cpu();
-
-}
+//static void trampoline(void *info)
+//{
+//	int cpu = get_cpu();
+//	pr_info("ibstrace: trampoline CPU #%d\n", cpu);
+//
+//	void (*func)(void);
+//	func = (void(*)(void))code_buf;
+//	func();
+//
+//	put_cpu();
+//
+//}
 
 static __init int ibstrace_init(void)
 {
@@ -66,9 +78,9 @@ static __init int ibstrace_init(void)
 		return -1;
 	}
 
-	procfs_entry = proc_create("ibstrace", 0, NULL, &ibstrace_fops);
-	if (!procfs_entry) {
-		pr_err("ibstrace: couldn't create procfs entry\n");
+	// Register a character device
+	if (misc_register(&ibstrace_dev) != 0) {
+		pr_err("ibstrace: couldn't register device\n");
 		return -1;
 	}
 
@@ -89,6 +101,7 @@ static __init int ibstrace_init(void)
 
 static __exit void ibstrace_exit(void)
 {
+	// Free allocations
 	set_memory_nx((unsigned long)code_buf, CODE_BUFFER_PAGES);
 	vfree(code_buf);
 	vfree(sample_buf);
@@ -97,7 +110,9 @@ static __exit void ibstrace_exit(void)
 	// Revert our APIC setup on the target CPU
 	smp_call_function_single(TARGET_CPU, ibs_apic_exit, NULL, 1);
 #endif 
-	proc_remove(procfs_entry);
+
+	// Tear down character device
+	misc_deregister(&ibstrace_dev);
 
 	pr_info("ibstrace: unloaded module\n");
 }
