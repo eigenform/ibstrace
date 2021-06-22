@@ -3,7 +3,9 @@
 
 #include <linux/types.h>
 
-#define IBSTRACE_CMD_WRITE 1
+#define TARGET_CPU				4
+
+#define IBSTRACE_CMD_WRITE		1
 
 struct ibstrace_msg {
 	void *ptr;

@@ -4,7 +4,9 @@
 #include <ibstrace.h>
 
 extern u8 *code_buf;
+extern u64 code_buf_len;
 struct ibstrace_msg tmp;
+extern void trampoline(void *info);
 
 long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
@@ -37,9 +39,12 @@ long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			pr_err("ibstrace: couldn't copy buffer\n");
 			return -EINVAL;
 		}
+		code_buf_len = tmp.len;
 
 		print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS, 16, 1, 
-				code_buf, tmp.len, 1);
+				code_buf, code_buf_len, 1);
+
+		smp_call_function_single(TARGET_CPU, trampoline, NULL, 1);
 		break;
 
 	default:

@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0
 
+// Notes:
+//	1. User issues ioctl(IBSTRACE_CMD_WRITE, ...)
+//	2. ibstrace_ioctl() writes to code_buf and uses smp_call_function_single()
+//	   to call trampoline() on the target CPU
+
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
@@ -20,7 +25,9 @@
 struct sample *sample_buf = NULL;
 
 u8 *code_buf = NULL;
-static DEFINE_MUTEX(code_buf_mutex);
+u64 code_buf_len = 0;
+
+//DEFINE_MUTEX(global_mutex);
 
 static int (*set_memory_x)(unsigned long, int) = NULL;
 static int (*set_memory_nx)(unsigned long, int) = NULL;
@@ -55,18 +62,19 @@ static u64 kprobe_resolve_sym(const char* name)
 	return addr;
 }
 
-//static void trampoline(void *info)
-//{
-//	int cpu = get_cpu();
-//	pr_info("ibstrace: trampoline CPU #%d\n", cpu);
-//
-//	void (*func)(void);
-//	func = (void(*)(void))code_buf;
-//	func();
-//
-//	put_cpu();
-//
-//}
+// If you call this with smp_call_function_single(), I think preemption is
+// already disabled and such
+void trampoline(void *info)
+{
+	//int cpu = get_cpu();
+	pr_info("ibstrace: trampoline CPU #%d\n", smp_processor_id());
+
+	print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS, 16, 1, 
+			code_buf, code_buf_len, 1);
+
+	//put_cpu();
+
+}
 
 static __init int ibstrace_init(void)
 {
