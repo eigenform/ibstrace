@@ -7,21 +7,22 @@ extern u8 *code_buf;
 extern u64 code_buf_len;
 struct ibstrace_msg tmp;
 extern void trampoline(void *info);
+static DEFINE_MUTEX(my_mutex);
 
 long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	// NOTE: You need to probably guard this with a mutex
+	mutex_lock(&my_mutex);
+	int res = 0;
 
-	int res;
 	switch (cmd) {
-
 	case IBSTRACE_CMD_WRITE:
 		// Copy a message (I assume that copy_from_user() at least does some
 		// simple validation to make sure this pointer isn't garbage?)
 		res = copy_from_user(&tmp, (struct ibstrace_msg *)arg, sizeof(struct ibstrace_msg));
 		if (res != 0) {
 			pr_err("ibstrace: couldn't copy message\n");
-			return -EINVAL;
+			res = -EINVAL;
+			break;
 		}
 
 		print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS, 16, 8, 
@@ -30,14 +31,16 @@ long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		// Don't handle user data larger than the maximum size
 		if ((tmp.len > CODE_BUFFER_SIZE) || (tmp.len == 0)) {
 			pr_err("ibstrace: invalid buffer length\n");
-			return -EINVAL;
+			res = -EINVAL;
+			break;
 		}
 
 		// Copy the actual data into the executable buffer
 		res = copy_from_user(code_buf, tmp.ptr, tmp.len);
 		if (res != 0) {
 			pr_err("ibstrace: couldn't copy buffer\n");
-			return -EINVAL;
+			res = -EINVAL;
+			break;
 		}
 		code_buf_len = tmp.len;
 
@@ -50,10 +53,12 @@ long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 
 	default:
-		return -EINVAL;
+		res = -EINVAL;
+		break;
 	}
 
-	return 0;
+	mutex_unlock(&my_mutex);
+	return res;
 }
 
 

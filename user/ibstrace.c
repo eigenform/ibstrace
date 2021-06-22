@@ -50,11 +50,12 @@ int main(int argc, char *argv[]) {
 
 	res = ioctl(ibs_fd, IBSTRACE_CMD_WRITE, &msg);
 	if (res < 0) {
-		printf("ioctl() returned %d\n", res);
+		printf("write ioctl() returned %d\n", res);
 		close(ibs_fd);
 		return -1;
 	}
 
-	ioctl(ibs_fd, IBSTRACE_CMD_MEASURE);
+	res = ioctl(ibs_fd, IBSTRACE_CMD_MEASURE);
+	printf("measure ioctl() returned %d\n", res);
 	close(ibs_fd);
 }
