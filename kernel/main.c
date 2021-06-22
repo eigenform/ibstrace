@@ -63,6 +63,9 @@ static u64 kprobe_resolve_sym(const char* name)
 
 // Jump into user code.
 //
+// smp_call_function_single() says the function must be "fast and non-blocking",
+// and I'm not sure if that excludes the way I'm using it here. 
+//
 // WARNING: 
 // This allows root the ability to execute arbitrary code in the kernel.
 // Assume if you're using this, you know what you're doing.
@@ -107,6 +110,19 @@ void trampoline(void *info)
 
 static __init int ibstrace_init(void)
 {
+
+#ifndef QEMU_BUILD
+	struct cpuinfo_x86 *info = &boot_cpu_data;
+	if (!(info->x86_vendor == X86_VENDOR_AMD)) {
+		pr_err("ibstrace: unsupported CPU\n");
+		return -1;
+	}
+	if !boot_cpu_has(X86_FEATURE_IBS) {
+		pr_err("ibstrace: cpuid says IBS isn't supported?\n");
+		return -1;
+	}
+#endif
+
 	// We have to resolve these symbols in order to set pages as executable
 	set_memory_x = (void*)kprobe_resolve_sym("set_memory_x");
 	set_memory_nx = (void*)kprobe_resolve_sym("set_memory_nx");

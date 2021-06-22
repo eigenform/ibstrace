@@ -43,9 +43,12 @@ long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 		print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS, 16, 1, 
 				code_buf, code_buf_len, 1);
+		break;
 
+	case IBSTRACE_CMD_MEASURE:
 		smp_call_function_single(TARGET_CPU, trampoline, NULL, 1);
 		break;
+
 	default:
 		return -EINVAL;
 	}
