@@ -19,7 +19,6 @@
 #include "apic.h"
 #include "fops.h"
 
-#define TARGET_CPU 4
 
 
 struct sample *sample_buf = NULL;
@@ -62,15 +61,45 @@ static u64 kprobe_resolve_sym(const char* name)
 	return addr;
 }
 
-// If you call this with smp_call_function_single(), I think preemption is
-// already disabled and such
+// Jump into user code.
+//
+// WARNING: 
+// This allows root the ability to execute arbitrary code in the kernel.
+// Assume if you're using this, you know what you're doing.
 void trampoline(void *info)
 {
+	int res;
+
 	//int cpu = get_cpu();
 	pr_info("ibstrace: trampoline CPU #%d\n", smp_processor_id());
 
 	print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS, 16, 1, 
 			code_buf, code_buf_len, 1);
+
+	asm(
+		"push %%rbx\n"
+		"push %%rbp\n"
+		"push %%r12\n"
+		"push %%r13\n"
+		"push %%r14\n"
+		"push %%r15\n"
+		"pushfq\n"
+
+		"call *%%rax\n"
+
+		"popfq\n"
+		"pop %%r15\n"
+		"pop %%r14\n"
+		"pop %%r13\n"
+		"pop %%r12\n"
+		"pop %%rbp\n"
+		"pop %%rbx\n"
+
+		: "=a"(res)			// Input pointer in rax
+		: "a"(code_buf)		// Output return value in rax
+	);
+
+	pr_info("ibstrace: trampoline returned %d\n", res);
 
 	//put_cpu();
 

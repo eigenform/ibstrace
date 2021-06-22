@@ -46,7 +46,6 @@ long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 		smp_call_function_single(TARGET_CPU, trampoline, NULL, 1);
 		break;
-
 	default:
 		return -EINVAL;
 	}
