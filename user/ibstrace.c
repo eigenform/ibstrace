@@ -5,17 +5,38 @@
 #include <stdio.h>
 #include <stdint.h>
 
-
-uint8_t buf[4] = { 0xde, 0xad, 0xbe, 0xef };
+static uint8_t *input_buf = NULL;
 
 int main(int argc, char *argv[]) {
-	int fd = open("/proc/ibstrace", O_RDWR);
-	if (fd < 0) {
-		printf("Couldn't open /proc/ibstrace (are you root?)\n");
-		exit(-1);
+	struct stat st;
+	int res, ibs_fd, input_fd;
+
+	if (argc < 2) {
+		printf("usage: %s <binary file>\n", argv[0]);
+		return -1;
 	}
 
-	write(fd, buf, 4);
+	// Read the provided file
+	res = stat(argv[1], &st);
+	if (res < 0) {
+		printf("Couldn't stat() input file %s\n", argv[1]);
+		return -1;
+	}
+	input_buf = (uint8_t*)malloc(st.st_size);
+	input_fd = open(argv[1], O_RDONLY);
+	res = read(input_fd, input_buf, st.st_size);
+	if (res != st.st_size) {
+		printf("Couldn't read input file %s\n", argv[1]);
+		return -1;
+	}
 
-	close(fd);
+	// Submit input buffer to the kernel
+	ibs_fd = open("/proc/ibstrace", O_RDWR);
+	if (ibs_fd < 0) {
+		printf("Couldn't open /proc/ibstrace (are you root?)\n");
+		return -1;
+	}
+	write(ibs_fd, input_buf, st.st_size);
+	close(ibs_fd);
+
 }

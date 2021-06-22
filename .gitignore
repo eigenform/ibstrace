@@ -1,8 +1,10 @@
 *.o
-a.out
 *.ko
 *.mod
 *.mod.*
 *.order
 *.symvers
 *.cmd
+*.out
+*.bin
+user/ibstrace
