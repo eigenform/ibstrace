@@ -1,13 +1,20 @@
 // SPDX-License-Identifier: GPL-2.0
 
-#include "fops.h"
+#include <linux/smp.h>
 #include <ibstrace.h>
+
+#include "fops.h"
 
 extern u8 *code_buf;
 extern u64 code_buf_len;
 struct ibstrace_msg tmp;
 extern void trampoline(void *info);
 static DEFINE_MUTEX(my_mutex);
+
+static call_single_data_t trampoline_csd = {
+	.func = trampoline,
+	.info = NULL,
+};
 
 long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
@@ -49,7 +56,9 @@ long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 
 	case IBSTRACE_CMD_MEASURE:
-		smp_call_function_single(TARGET_CPU, trampoline, NULL, 1);
+		pr_info("ibstrace: dispatching code ...\n");
+		//smp_call_function_single(TARGET_CPU, trampoline, NULL, 1);
+		smp_call_function_single_async(TARGET_CPU, &trampoline_csd);
 		break;
 
 	default:

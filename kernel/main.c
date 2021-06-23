@@ -26,8 +26,6 @@ struct sample *sample_buf = NULL;
 u8 *code_buf = NULL;
 u64 code_buf_len = 0;
 
-//DEFINE_MUTEX(global_mutex);
-
 static int (*set_memory_x)(unsigned long, int) = NULL;
 static int (*set_memory_nx)(unsigned long, int) = NULL;
 
@@ -65,6 +63,7 @@ static u64 kprobe_resolve_sym(const char* name)
 //
 // smp_call_function_single() says the function must be "fast and non-blocking",
 // and I'm not sure if that excludes the way I'm using it here. 
+//
 //
 // WARNING: 
 // This allows root the ability to execute arbitrary code in the kernel.

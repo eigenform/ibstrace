@@ -7,4 +7,5 @@
 *.cmd
 *.out
 *.bin
+*.elf
 user/ibstrace
