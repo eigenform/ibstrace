@@ -67,8 +67,8 @@ void trampoline(void *info)
 	disable_ibs();
 #endif // QEMU_BUILD
 
-	mutex_unlock(&state.in_use);
 	pr_info("ibstrace: trampoline returned %d\n", res);
+	mutex_unlock(&state.in_use);
 }
 
 

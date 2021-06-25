@@ -19,10 +19,6 @@ long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int res = 0;
 
-	if (!(mutex_trylock(&state.in_use))) {
-		return -EBUSY;
-	}
-
 	switch (cmd) {
 	case IBSTRACE_CMD_WRITE:
 		mutex_lock(&state.in_use);
@@ -45,6 +41,7 @@ long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		state.code_buf_len = tmp.len;
+		pr_info("ibstrace: wrote %lu bytes\n", tmp.len);
 		mutex_unlock(&state.in_use);
 		break;
 
