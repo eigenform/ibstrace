@@ -14,11 +14,12 @@ static inline void enable_ibs(void)
 {
 	u64 ibs_op_ctl;
 	rdmsrl(IBS_OP_CTL, ibs_op_ctl);
-	pr_info("ibstrace: IBS_OP_CTL %016llx\n", ibs_op_ctl);
+	pr_info("ibstrace: initial IBS_OP_CTL %016llx\n", ibs_op_ctl);
 
 	ibs_op_ctl |= IBS_OP_CNT_CTL;
-	ibs_op_ctl |= (0x4000ULL & IBS_OP_CUR_CNT_23);
+	ibs_op_ctl |= (0x4000ULL & IBS_OP_MAX_CNT);
 	ibs_op_ctl |= IBS_OP_EN;
+	pr_info("ibstrace: start IBS_OP_CTL %016llx\n", ibs_op_ctl);
 	wrmsrl(IBS_OP_CTL, ibs_op_ctl);
 }
 
@@ -35,6 +36,7 @@ static inline void disable_ibs(void)
 void trampoline(void *info)
 {
 	int res;
+	pr_info("ibstrace: trampoline on cpu #%d\n", smp_processor_id());
 
 #ifndef QEMU_BUILD
 	enable_ibs();

@@ -1,10 +1,14 @@
 .intel_syntax noprefix
 _start:
-	mov		rax, 0x1000
+	mov		rsi, 0x1000
 
 _loop:
 	xor		rcx, rcx
-	sub		rax, 1
+	xor		rdx, rdx
+	sub		rsi, 1
 	jne		_loop
+
+_exit:
+	mov		rax, 42
 	ret
 

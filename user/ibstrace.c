@@ -49,8 +49,8 @@ int main(int argc, char *argv[]) {
 	}
 
 	res = ioctl(ibs_fd, IBSTRACE_CMD_WRITE, &msg);
+	printf("write ioctl() returned %d\n", res);
 	if (res < 0) {
-		printf("write ioctl() returned %d\n", res);
 		close(ibs_fd);
 		return -1;
 	}
