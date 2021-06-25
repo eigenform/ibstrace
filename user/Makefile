@@ -13,4 +13,4 @@ tests:
 	objcopy -O binary -j .text test.elf test.bin
 
 clean:
-	rm -fv $(BIN)
+	rm -fv $(BIN) *.elf a.out

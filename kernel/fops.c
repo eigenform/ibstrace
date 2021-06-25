@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0
 
 #include <linux/smp.h>
+#include <linux/fs.h>
 #include <ibstrace.h>
-
+#include "state.h"
 #include "fops.h"
 
-extern u8 *code_buf;
-extern u64 code_buf_len;
 struct ibstrace_msg tmp;
 extern void trampoline(void *info);
-static DEFINE_MUTEX(my_mutex);
+extern struct ibstrace_state state;
 
 static call_single_data_t trampoline_csd = {
 	.func = trampoline,
@@ -18,47 +17,57 @@ static call_single_data_t trampoline_csd = {
 
 long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	mutex_lock(&my_mutex);
 	int res = 0;
+
+	if (!(mutex_trylock(&state.in_use))) {
+		return -EBUSY;
+	}
 
 	switch (cmd) {
 	case IBSTRACE_CMD_WRITE:
-		// Copy a message (I assume that copy_from_user() at least does some
-		// simple validation to make sure this pointer isn't garbage?)
-		res = copy_from_user(&tmp, (struct ibstrace_msg *)arg, sizeof(struct ibstrace_msg));
+		mutex_lock(&state.in_use);
+
+		// NOTE: Does copy_from_user() validate this pointer?
+		res = copy_from_user(&tmp, (struct ibstrace_msg *)arg, 
+				sizeof(struct ibstrace_msg));
 		if (res != 0) {
-			pr_err("ibstrace: couldn't copy message\n");
+			res = -EINVAL;
+			break;
+		}
+		if ((tmp.len > CODE_BUFFER_MAX_SIZE) || (tmp.len == 0)) {
 			res = -EINVAL;
 			break;
 		}
 
-		print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS, 16, 8, 
-				&tmp, sizeof(struct ibstrace_msg), 1);
-
-		// Don't handle user data larger than the maximum size
-		if ((tmp.len > CODE_BUFFER_SIZE) || (tmp.len == 0)) {
-			pr_err("ibstrace: invalid buffer length\n");
-			res = -EINVAL;
-			break;
-		}
-
-		// Copy the actual data into the executable buffer
-		res = copy_from_user(code_buf, tmp.ptr, tmp.len);
+		res = copy_from_user(state.code_buf, tmp.ptr, tmp.len);
 		if (res != 0) {
-			pr_err("ibstrace: couldn't copy buffer\n");
 			res = -EINVAL;
 			break;
 		}
-		code_buf_len = tmp.len;
-
-		print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS, 16, 1, 
-				code_buf, code_buf_len, 1);
+		state.code_buf_len = tmp.len;
+		mutex_unlock(&state.in_use);
 		break;
 
 	case IBSTRACE_CMD_MEASURE:
+
+		mutex_lock(&state.in_use);
 		pr_info("ibstrace: dispatching code ...\n");
-		//smp_call_function_single(TARGET_CPU, trampoline, NULL, 1);
 		smp_call_function_single_async(TARGET_CPU, &trampoline_csd);
+
+		pr_info("ibstrace: waiting for lock ...\n");
+
+		mutex_lock(&state.in_use);
+		pr_info("ibstrace: trampoline completed?\n");
+		mutex_unlock(&state.in_use);
+		break;
+
+	case IBSTRACE_CMD_READ:
+		mutex_lock(&state.in_use);
+		pr_info("ibstrace: dumping samples ...\n");
+		pr_info("ibstrace: collected %lu samples\n",
+				atomic_long_read(&state.samples_collected));
+		atomic_long_xchg(&state.samples_collected, 0);
+		mutex_unlock(&state.in_use);
 		break;
 
 	default:
@@ -66,7 +75,6 @@ long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	}
 
-	mutex_unlock(&my_mutex);
 	return res;
 }
 

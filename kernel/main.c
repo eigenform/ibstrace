@@ -1,13 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 
-// Notes:
-//	1. User issues ioctl(IBSTRACE_CMD_WRITE, ...)
-//	2. ibstrace_ioctl() writes to code_buf and uses smp_call_function_single()
-//	   to call trampoline() on the target CPU
-
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
+#include <linux/nmi.h>
 
 #include <linux/kallsyms.h>
 #include <linux/kprobes.h>
@@ -15,25 +11,32 @@
 #include <linux/device.h>
 #include <linux/miscdevice.h>
 
-#include "ibstrace.h"
+#include <ibstrace.h>
+#include "state.h"
 #include "apic.h"
 #include "fops.h"
+#include "nmi.h"
 
 
+// Shared state associated with this module
+struct ibstrace_state state = {
+	.sample_buf = NULL,
+	.sample_buf_capacity = 32,
+	.sample_buf_len = sizeof(struct sample) * 32,
+	.samples_collected = ATOMIC_INIT(0),
+};
 
-struct sample *sample_buf = NULL;
-
-u8 *code_buf = NULL;
-u64 code_buf_len = 0;
 
 static int (*set_memory_x)(unsigned long, int) = NULL;
 static int (*set_memory_nx)(unsigned long, int) = NULL;
 
-
+// File operations for the character device
 static const struct file_operations ibstrace_fops = {
 	.owner				= THIS_MODULE,
 	.unlocked_ioctl		= ibstrace_ioctl,
 };
+
+// The character device exposed by this module
 static struct miscdevice ibstrace_dev = {
 	.minor				= MISC_DYNAMIC_MINOR,
 	.name				= "ibstrace",
@@ -41,7 +44,8 @@ static struct miscdevice ibstrace_dev = {
 };
 
 
-// Hack to resolve the address of some symbol via kprobes.
+// Hack to resolve the address of some symbol during runtime via kprobes.
+// Wouldn't be suprised if this breaks in later kernel versions.
 static u64 kprobe_resolve_sym(const char* name)
 {
 	int res;
@@ -59,70 +63,26 @@ static u64 kprobe_resolve_sym(const char* name)
 	return addr;
 }
 
-// Jump into user code.
-//
-// smp_call_function_single() says the function must be "fast and non-blocking",
-// and I'm not sure if that excludes the way I'm using it here. 
-//
-//
-// WARNING: 
-// This allows root the ability to execute arbitrary code in the kernel.
-// Assume if you're using this, you know what you're doing.
-void trampoline(void *info)
-{
-	int res;
-
-	//int cpu = get_cpu();
-	pr_info("ibstrace: trampoline CPU #%d\n", smp_processor_id());
-
-	print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS, 16, 1, 
-			code_buf, code_buf_len, 1);
-
-	asm(
-		"push %%rbx\n"
-		"push %%rbp\n"
-		"push %%r12\n"
-		"push %%r13\n"
-		"push %%r14\n"
-		"push %%r15\n"
-		"pushfq\n"
-
-		"call *%%rax\n"
-
-		"popfq\n"
-		"pop %%r15\n"
-		"pop %%r14\n"
-		"pop %%r13\n"
-		"pop %%r12\n"
-		"pop %%rbp\n"
-		"pop %%rbx\n"
-
-		: "=a"(res)			// Input pointer in rax
-		: "a"(code_buf)		// Output return value in rax
-	);
-
-	pr_info("ibstrace: trampoline returned %d\n", res);
-
-	//put_cpu();
-
-}
 
 static __init int ibstrace_init(void)
 {
+	int err;
 
 #ifndef QEMU_BUILD
+	// Avoid initializing this module if IBS isn't supported on this machine
 	struct cpuinfo_x86 *info = &boot_cpu_data;
 	if (!(info->x86_vendor == X86_VENDOR_AMD)) {
 		pr_err("ibstrace: unsupported CPU\n");
 		return -1;
 	}
-	if !boot_cpu_has(X86_FEATURE_IBS) {
+	if (!boot_cpu_has(X86_FEATURE_IBS)) {
 		pr_err("ibstrace: cpuid says IBS isn't supported?\n");
 		return -1;
 	}
 #endif
 
-	// We have to resolve these symbols in order to set pages as executable
+	// We have to resolve these symbols in order to set pages as executable.
+	// I wonder if there's another way to do this?
 	set_memory_x = (void*)kprobe_resolve_sym("set_memory_x");
 	set_memory_nx = (void*)kprobe_resolve_sym("set_memory_nx");
 	if ((set_memory_x == NULL) || (set_memory_nx == NULL)) {
@@ -130,22 +90,26 @@ static __init int ibstrace_init(void)
 		return -1;
 	}
 
-	// Register a character device
+	// Register a character device at /dev/ibstrace
 	if (misc_register(&ibstrace_dev) != 0) {
 		pr_err("ibstrace: couldn't register device\n");
 		return -1;
 	}
 
-	code_buf = vmalloc(CODE_BUFFER_SIZE);
-	sample_buf = vmalloc(SAMPLE_BUFFER_SIZE);
-	set_memory_x((unsigned long)code_buf, CODE_BUFFER_PAGES);
-
-	pr_info("ibstrace: code_buf=%px (%ld)\n", code_buf, CODE_BUFFER_SIZE);
-	pr_info("ibstrace: sample_buf=%px (%ld)\n", sample_buf, SAMPLE_BUFFER_SIZE);
+	// Allocate space for sample data, and for user input.
+	mutex_init(&state.in_use);
+	spin_lock_init(&state.measuring);
+	state.code_buf = vmalloc(CODE_BUFFER_MAX_SIZE);
+	state.sample_buf = vmalloc(state.sample_buf_len);
+	set_memory_x((unsigned long)state.code_buf, CODE_BUFFER_PAGES);
+	pr_info("ibstrace: code_buf=%px\n", state.code_buf);
+	pr_info("ibstrace: sample_buf=%px\n", state.sample_buf);
 
 #ifndef QEMU_BUILD
 	// Initialize the local APIC for the target CPU
 	smp_call_function_single(TARGET_CPU, ibs_apic_init, NULL, 1);
+	err = register_nmi_handler(NMI_LOCAL, ibs_nmi_handler,
+			NMI_FLAG_FIRST, "ibstrace");
 #endif
 
 	return 0;
@@ -153,19 +117,16 @@ static __init int ibstrace_init(void)
 
 static __exit void ibstrace_exit(void)
 {
-	// Free allocations
-	set_memory_nx((unsigned long)code_buf, CODE_BUFFER_PAGES);
-	vfree(code_buf);
-	vfree(sample_buf);
+	set_memory_nx((unsigned long)state.code_buf, CODE_BUFFER_PAGES);
+	vfree(state.code_buf);
+	vfree(state.sample_buf);
 
 #ifndef QEMU_BUILD
-	// Revert our APIC setup on the target CPU
 	smp_call_function_single(TARGET_CPU, ibs_apic_exit, NULL, 1);
+	unregister_nmi_handler(NMI_LOCAL, "ibstrace");
 #endif 
 
-	// Tear down character device
 	misc_deregister(&ibstrace_dev);
-
 	pr_info("ibstrace: unloaded module\n");
 }
 

@@ -34,6 +34,7 @@ void ibs_apic_init(void *info)
 			smp_processor_id());
 		goto out;
 	}
+
 failed:
 	pr_warn("ibstrace: APIC setup failed for cpu #%d\n",
 		smp_processor_id());
@@ -41,7 +42,7 @@ out:
 	preempt_enable();
 }
 
-// Disable IBS NMIs on the the local APIC.
+// Disable IBS NMIs on the local APIC.
 void ibs_apic_exit(void *info)
 {
 	int offset;

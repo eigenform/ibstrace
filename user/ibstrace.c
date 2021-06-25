@@ -55,7 +55,12 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 
+	// This *should* block
 	res = ioctl(ibs_fd, IBSTRACE_CMD_MEASURE);
 	printf("measure ioctl() returned %d\n", res);
+
+	res = ioctl(ibs_fd, IBSTRACE_CMD_READ);
+	printf("read ioctl() returned %d\n", res);
+
 	close(ibs_fd);
 }
