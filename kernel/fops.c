@@ -18,6 +18,7 @@ static call_single_data_t trampoline_csd = {
 long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int res = 0;
+	long idx;
 
 	switch (cmd) {
 	case IBSTRACE_CMD_WRITE:
@@ -61,8 +62,20 @@ long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case IBSTRACE_CMD_READ:
 		mutex_lock(&state.in_use);
 		pr_info("ibstrace: dumping samples ...\n");
-		pr_info("ibstrace: collected %lu samples\n",
-				atomic_long_read(&state.samples_collected));
+
+		long num_samples = atomic_long_read(&state.samples_collected);
+		for (idx = 0; idx < num_samples; idx++) {
+			pr_info("ibstrace: cpu=%d kernel=%d ctl=%016llx rip=%016llx data=%016llx\n",
+					state.sample_buf[idx].cpu,
+					state.sample_buf[idx].kernel,
+					state.sample_buf[idx].op_ctl,
+					state.sample_buf[idx].op_rip,
+					state.sample_buf[idx].op_data
+					);
+		}
+
+		pr_info("ibstrace: collected %lu samples\n", num_samples);
+
 		atomic_long_xchg(&state.samples_collected, 0);
 		mutex_unlock(&state.in_use);
 		break;

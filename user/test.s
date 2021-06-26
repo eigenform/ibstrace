@@ -1,10 +1,13 @@
 .intel_syntax noprefix
 _start:
-	mov		rsi, 0x1000
+	mov		rsi, 0x4000
 
 _loop:
-	xor		rcx, rcx
-	xor		rdx, rdx
+	mov		eax, 0x00000002
+	nop
+	cpuid
+	nop
+	nop
 	sub		rsi, 1
 	jne		_loop
 

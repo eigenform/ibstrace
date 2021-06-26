@@ -7,6 +7,10 @@
 #define IBS_OP_DATA3			0xc0011037
 #define IBS_DC_LIN_AD			0xc0011038
 #define IBS_DC_PHYS_AD			0xc0011039
+#define IBS_CONTROL				0xc001103a
+
+#define IBS_LVT_OFFSET_VALID	(1ULL << 8)
+#define IBS_LVT_OFFSET_MASK		(0xf)
 
 
 // IBS_OP_CTL

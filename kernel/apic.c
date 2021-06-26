@@ -2,20 +2,20 @@
 
 #include <asm/apic.h>
 #include <asm/apicdef.h>
-#include <asm/perf_event.h>
 
+#include "msr.h"
 #include "apic.h"
 
 // Read the LVT offset from IBSCTL (otherwise, return EINVAL).
-static inline int get_ibs_lvt_offset(void)
+static inline u64 get_ibs_lvt_offset(void)
 {
-	u64 val;
+	u64 ibs_control;
 
-	rdmsrl(MSR_AMD64_IBSCTL, val);
-	if (!(val & IBSCTL_LVT_OFFSET_VALID))
+	rdmsrl(IBS_CONTROL, ibs_control);
+	if (!(ibs_control & IBS_LVT_OFFSET_VALID))
 		return -EINVAL;
 
-	return val & IBSCTL_LVT_OFFSET_MASK;
+	return ibs_control & IBS_LVT_OFFSET_MASK;
 }
 
 
@@ -26,6 +26,7 @@ void ibs_apic_init(void *info)
 
 	preempt_disable();
 	offset = get_ibs_lvt_offset();
+
 	if (offset < 0)
 		goto failed;
 
@@ -40,6 +41,7 @@ failed:
 		smp_processor_id());
 out:
 	preempt_enable();
+	return;
 }
 
 // Disable IBS NMIs on the local APIC.

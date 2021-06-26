@@ -18,6 +18,8 @@
 #include "nmi.h"
 
 
+extern void trampoline(void *info);
+
 // Shared state associated with this module
 struct ibstrace_state state = {
 	.sample_buf = NULL,
@@ -96,6 +98,17 @@ static __init int ibstrace_init(void)
 		return -1;
 	}
 
+#ifndef QEMU_BUILD
+	// Initialize the local APIC for the target CPU
+	smp_call_function_single(TARGET_CPU, ibs_apic_init, NULL, 1);
+	err = register_nmi_handler(NMI_LOCAL, ibs_nmi_handler,
+			NMI_FLAG_FIRST, "ibstrace");
+	if (err) {
+		pr_err("ibstrace: register_nmi_handler() returned %d\n", err);
+		return -1;
+	}
+#endif
+
 	// Allocate space for sample data, and for user input.
 	mutex_init(&state.in_use);
 	spin_lock_init(&state.measuring);
@@ -104,13 +117,7 @@ static __init int ibstrace_init(void)
 	set_memory_x((unsigned long)state.code_buf, CODE_BUFFER_PAGES);
 	pr_info("ibstrace: code_buf=%px\n", state.code_buf);
 	pr_info("ibstrace: sample_buf=%px\n", state.sample_buf);
-
-#ifndef QEMU_BUILD
-	// Initialize the local APIC for the target CPU
-	smp_call_function_single(TARGET_CPU, ibs_apic_init, NULL, 1);
-	err = register_nmi_handler(NMI_LOCAL, ibs_nmi_handler,
-			NMI_FLAG_FIRST, "ibstrace");
-#endif
+	pr_info("ibstrace: trampoline=%px\n", trampoline);
 
 	return 0;
 }

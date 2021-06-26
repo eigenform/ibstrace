@@ -17,22 +17,24 @@ static u64 lsfr4(void)
 	return tmp & 0xf;
 }
 
-//static void read_sample_data(struct sample *sample, struct pt_regs *regs)
-//{
-//	rdmsrl(IBS_OP_DATA, sample->op_data);
-//	rdmsrl(IBS_OP_DATA2, sample->op_data2);
-//	rdmsrl(IBS_OP_DATA3, sample->op_data3);
-//	rdmsrl(IBS_DC_LIN_AD, sample->dc_lin_addr);
-//	rdmsrl(IBS_DC_PHYS_AD, sample->dc_phys_addr);
-//	rdmsrl(IBS_OP_RIP, sample->op_rip);
-//	sample->cpu = smp_processor_id();
-//	sample->kernel = !user_mode(regs);
-//}
+static void read_sample_data(struct sample *sample, struct pt_regs *regs)
+{
+	rdmsrl(IBS_OP_CTL, sample->op_ctl);
+	rdmsrl(IBS_OP_DATA, sample->op_data);
+	rdmsrl(IBS_OP_DATA2, sample->op_data2);
+	rdmsrl(IBS_OP_DATA3, sample->op_data3);
+	rdmsrl(IBS_DC_LIN_AD, sample->dc_lin_addr);
+	rdmsrl(IBS_DC_PHYS_AD, sample->dc_phys_addr);
+	rdmsrl(IBS_OP_RIP, sample->op_rip);
+	sample->cpu = smp_processor_id();
+	sample->kernel = !user_mode(regs);
+}
 
 // The handler for IBS non-maskable interrupts. 
 int ibs_nmi_handler(unsigned int cmd, struct pt_regs *regs)
 {
 	u64 ibs_op_ctl;
+	struct sample *this_sample;
 	rdmsrl(IBS_OP_CTL, ibs_op_ctl);
 
 	// If the sample valid bit is set, this is an IBS NMI
@@ -43,7 +45,15 @@ int ibs_nmi_handler(unsigned int cmd, struct pt_regs *regs)
 			return NMI_HANDLED; 
 		}
 
+
+		long idx = atomic_long_read(&state.samples_collected);
+		if (idx >= state.sample_buf_capacity) {
+			return NMI_HANDLED;
+		}
+
 		// Collect the sample
+		this_sample = &state.sample_buf[idx];
+		read_sample_data(this_sample, regs);
 		atomic_long_inc(&state.samples_collected);
 
 		// Reconfigure IBS_OP_CTL so we can handle another sample
