@@ -6,12 +6,13 @@
 #include <linux/types.h>
 #include <linux/sched.h>
 
-#define TARGET_CPU				4
+#define TARGET_CPU					4
 
-#define IBSTRACE_CMD_WRITE		0x1000
-#define IBSTRACE_CMD_MEASURE	0x2000
-#define IBSTRACE_CMD_READ		0x4000
+#define IBSTRACE_SAMPLE_CAPACITY	256
 
+#define IBSTRACE_CMD_WRITE			0x1000
+#define IBSTRACE_CMD_MEASURE		0x2000
+#define IBSTRACE_CMD_NUM_SAMPLE		0x4000
 
 struct ibstrace_msg {
 	void *ptr;

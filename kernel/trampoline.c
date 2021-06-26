@@ -17,7 +17,7 @@ static inline void enable_ibs(void)
 	pr_info("ibstrace: initial IBS_OP_CTL %016llx\n", ibs_op_ctl);
 
 	ibs_op_ctl |= IBS_OP_CNT_CTL;
-	ibs_op_ctl |= (0x4000ULL & IBS_OP_MAX_CNT);
+	ibs_op_ctl |= (0x1000ULL & IBS_OP_MAX_CNT);
 	ibs_op_ctl |= IBS_OP_EN;
 	pr_info("ibstrace: start IBS_OP_CTL %016llx\n", ibs_op_ctl);
 	wrmsrl(IBS_OP_CTL, ibs_op_ctl);

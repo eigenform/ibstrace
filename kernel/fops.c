@@ -15,15 +15,56 @@ static call_single_data_t trampoline_csd = {
 	.info = NULL,
 };
 
+ssize_t ibstrace_read(struct file *file, char __user *buf, size_t count,
+		loff_t *fpos)
+{
+	ssize_t res;
+	int num_bytes;
+	long num_samples;
+
+	mutex_lock(&state.in_use);
+
+	// The number of samples in the sample buffer
+	num_samples = atomic_long_read(&state.samples_collected);
+	// The number of valid bytes in the sample buffer
+	num_bytes = (num_samples * sizeof(struct sample));
+
+
+	// If there's nothing to read, return 0
+	if ((count == 0) || (num_samples == 0)) {
+		res = 0;
+		goto out;
+	} 
+
+	// Limit the maximum size of reads
+	if (count > num_bytes) {
+		count = num_bytes;
+	}
+
+	if (copy_to_user(buf, state.sample_buf, count)) {
+		res = -EFAULT;
+		goto out;
+	}
+
+	// Consume the buffer
+	atomic_long_xchg(&state.samples_collected, 0);
+	memset(state.sample_buf, 0, num_bytes);
+
+	res = count;
+
+out:
+	mutex_unlock(&state.in_use);
+	return res;
+}
+
 long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int res = 0;
-	long idx;
+	long num_samples;
 
 	switch (cmd) {
 	case IBSTRACE_CMD_WRITE:
 		mutex_lock(&state.in_use);
-
 		// NOTE: Does copy_from_user() validate this pointer?
 		res = copy_from_user(&tmp, (struct ibstrace_msg *)arg, 
 				sizeof(struct ibstrace_msg));
@@ -47,36 +88,20 @@ long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 
 	case IBSTRACE_CMD_MEASURE:
-
 		mutex_lock(&state.in_use);
 		pr_info("ibstrace: dispatching code ...\n");
 		smp_call_function_single_async(TARGET_CPU, &trampoline_csd);
-
 		pr_info("ibstrace: waiting for lock ...\n");
-
 		mutex_lock(&state.in_use);
-		pr_info("ibstrace: trampoline completed?\n");
+		pr_info("ibstrace: measure ioctl() finished\n");
 		mutex_unlock(&state.in_use);
 		break;
 
-	case IBSTRACE_CMD_READ:
+	case IBSTRACE_CMD_NUM_SAMPLE:
 		mutex_lock(&state.in_use);
-		pr_info("ibstrace: dumping samples ...\n");
-
-		long num_samples = atomic_long_read(&state.samples_collected);
-		for (idx = 0; idx < num_samples; idx++) {
-			pr_info("ibstrace: cpu=%d kernel=%d ctl=%016llx rip=%016llx data=%016llx\n",
-					state.sample_buf[idx].cpu,
-					state.sample_buf[idx].kernel,
-					state.sample_buf[idx].op_ctl,
-					state.sample_buf[idx].op_rip,
-					state.sample_buf[idx].op_data
-					);
-		}
-
+		num_samples = atomic_long_read(&state.samples_collected);
 		pr_info("ibstrace: collected %lu samples\n", num_samples);
-
-		atomic_long_xchg(&state.samples_collected, 0);
+		res = num_samples;
 		mutex_unlock(&state.in_use);
 		break;
 

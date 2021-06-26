@@ -23,8 +23,8 @@ extern void trampoline(void *info);
 // Shared state associated with this module
 struct ibstrace_state state = {
 	.sample_buf = NULL,
-	.sample_buf_capacity = 32,
-	.sample_buf_len = sizeof(struct sample) * 32,
+	.sample_buf_capacity = IBSTRACE_SAMPLE_CAPACITY,
+	.sample_buf_len = sizeof(struct sample) * IBSTRACE_SAMPLE_CAPACITY,
 	.samples_collected = ATOMIC_INIT(0),
 };
 
@@ -36,6 +36,7 @@ static int (*set_memory_nx)(unsigned long, int) = NULL;
 static const struct file_operations ibstrace_fops = {
 	.owner				= THIS_MODULE,
 	.unlocked_ioctl		= ibstrace_ioctl,
+	.read				= ibstrace_read,
 };
 
 // The character device exposed by this module
