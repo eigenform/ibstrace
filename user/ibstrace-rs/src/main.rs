@@ -61,7 +61,9 @@ fn open_device() -> Result<i32, &'static str> {
     }
 }
 
-fn measure_code(fd: i32, code: &[u8], len: usize) -> Result<Box<[u8]>, String> {
+fn measure_code(fd: i32, code: &[u8], len: usize) 
+    -> Result<(Box<[u8]>, usize), String> 
+{
     let mut res: i32;
     let mut outbuf: Vec<u8>;
     let num_sample: i32;
@@ -96,7 +98,7 @@ fn measure_code(fd: i32, code: &[u8], len: usize) -> Result<Box<[u8]>, String> {
             return Err("failed to read sample data".to_string());
         }
     }
-    Ok(outbuf.into_boxed_slice())
+    Ok((outbuf.into_boxed_slice(), num_sample as usize))
 }
 
 
@@ -122,12 +124,20 @@ fn main() {
 
     let res = measure_code(fd, &input_buffer, input_len);
     close(fd).unwrap();
-    let sample_data = match res {
-        Ok(buf) => buf,
+    let (sample_data, num_samples) = match res {
+        Ok((buf, len)) => (buf, len),
         Err(e) => panic!("{}", e),
     };
+    let sample_ptr = sample_data.as_ptr();
 
+    let samples = unsafe { 
+        std::slice::from_raw_parts(sample_ptr as *mut Sample, num_samples)
+    };
+    println!("{} samples", samples.len());
 
+    for sample in samples.iter() {
+        println!("{:016x}", sample.rip);
+    }
 
     //let output = File::create("/tmp/foo.bin").unwrap();
 
