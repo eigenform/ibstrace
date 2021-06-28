@@ -112,7 +112,6 @@ static __init int ibstrace_init(void)
 
 	// Allocate space for sample data, and for user input.
 	mutex_init(&state.in_use);
-	spin_lock_init(&state.measuring);
 	state.code_buf = vmalloc(CODE_BUFFER_MAX_SIZE);
 	state.sample_buf = vmalloc(state.sample_buf_len);
 	set_memory_x((unsigned long)state.code_buf, CODE_BUFFER_PAGES);

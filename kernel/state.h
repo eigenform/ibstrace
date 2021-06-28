@@ -7,13 +7,11 @@
 #define CODE_BUFFER_MAX_SIZE	(CODE_BUFFER_PAGES * PAGE_SIZE)
 
 struct ibstrace_state {
+	// Lock held when we're doing some operation
 	struct mutex in_use;
-
-	spinlock_t measuring;
 
 	// The number of samples copied into the buffer
 	atomic_long_t samples_collected;
-
 
 	// Pointer to buffer of samples
 	struct sample *sample_buf;
