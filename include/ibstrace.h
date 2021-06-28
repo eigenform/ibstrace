@@ -6,13 +6,20 @@
 #include <linux/types.h>
 #include <linux/sched.h>
 
+// The target CPU used to execute and sample some code
 #define TARGET_CPU					4
 
+// The maximum capacity of the sample buffer (in number of samples)
 #define IBSTRACE_SAMPLE_CAPACITY	256
 
-#define IBSTRACE_CMD_WRITE			0x1000
-#define IBSTRACE_CMD_MEASURE		0x2000
-#define IBSTRACE_CMD_NUM_SAMPLE		0x4000
+// ioctl() command: submit code to-be-measured
+#define IBSTRACE_CMD_WRITE			0x00001000
+// ioctl() command: execute and sample code
+#define IBSTRACE_CMD_MEASURE		0x00002000
+// ioctl() command: return the number of collected samples
+#define IBSTRACE_CMD_SAMPLES		0x00004000
+// ioctl() command: return the maximum sample buffer capacity
+#define IBSTRACE_CMD_CAPACITY		0x00008000
 
 struct ibstrace_msg {
 	void *ptr;
@@ -25,13 +32,8 @@ struct sample {
 	__u64 op_data;
 	__u64 op_data2;
 	__u64 op_data3;
-	__u64 op_data4;
 	__u64 dc_lin_addr;
 	__u64 dc_phys_addr;
-	pid_t tid;
-	pid_t pid;
-	int	  cpu;
-	int   kernel;
 };
 
 #endif // _IBSTRACE_H

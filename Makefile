@@ -1,4 +1,4 @@
-.PHONY: prod qemu user
+.PHONY: prod qemu user tests
 all: options
 
 options: 
@@ -13,7 +13,10 @@ qemu:
 	$(MAKE) -C kernel/ qemu
 user:
 	$(MAKE) -C user/
+test:
+	$(MAKE) -C test/
 
 clean:
 	$(MAKE) -C kernel/ clean
 	$(MAKE) -C user/ clean
+	$(MAKE) -C test/ clean

@@ -3,14 +3,10 @@ BIN 	:= ibstrace
 CFLAGS 	:= -I$(CURDIR)/../include
 
 
-all: $(BIN) tests
+all: $(BIN)
 
 $(BIN): $(SRC)
 	gcc $(CFLAGS) $(SRC) -o $@
 
-tests: 
-	as test.s -o test.elf
-	objcopy -O binary -j .text test.elf test.bin
-
 clean:
-	rm -fv $(BIN) *.elf a.out
+	rm -fv $(BIN)

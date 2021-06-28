@@ -26,8 +26,6 @@ static void read_sample_data(struct sample *sample, struct pt_regs *regs)
 	rdmsrl(IBS_DC_LIN_AD, sample->dc_lin_addr);
 	rdmsrl(IBS_DC_PHYS_AD, sample->dc_phys_addr);
 	rdmsrl(IBS_OP_RIP, sample->op_rip);
-	sample->cpu = smp_processor_id();
-	sample->kernel = !user_mode(regs);
 }
 
 // The handler for IBS non-maskable interrupts. 

@@ -65,9 +65,11 @@ long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	case IBSTRACE_CMD_WRITE:
 		mutex_lock(&state.in_use);
+
 		// NOTE: Does copy_from_user() validate this pointer?
 		res = copy_from_user(&tmp, (struct ibstrace_msg *)arg, 
 				sizeof(struct ibstrace_msg));
+
 		if (res != 0) {
 			res = -EINVAL;
 			break;
@@ -97,11 +99,16 @@ long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		mutex_unlock(&state.in_use);
 		break;
 
-	case IBSTRACE_CMD_NUM_SAMPLE:
+	case IBSTRACE_CMD_SAMPLES:
 		mutex_lock(&state.in_use);
 		num_samples = atomic_long_read(&state.samples_collected);
-		pr_info("ibstrace: collected %lu samples\n", num_samples);
 		res = num_samples;
+		mutex_unlock(&state.in_use);
+		break;
+	
+	case IBSTRACE_CMD_CAPACITY:
+		mutex_lock(&state.in_use);
+		res = IBSTRACE_SAMPLE_CAPACITY;
 		mutex_unlock(&state.in_use);
 		break;
 
@@ -112,5 +119,4 @@ long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 	return res;
 }
-
 

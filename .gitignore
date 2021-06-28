@@ -9,4 +9,4 @@
 *.bin
 *.elf
 user/ibstrace
-user/ibstrace-rs/target
+ibst-rs/target
