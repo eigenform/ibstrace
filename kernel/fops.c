@@ -26,9 +26,9 @@ ssize_t ibstrace_read(struct file *file, char __user *buf, size_t count,
 
 	// The number of samples in the sample buffer
 	num_samples = atomic_long_read(&state.samples_collected);
+
 	// The number of valid bytes in the sample buffer
 	num_bytes = (num_samples * sizeof(struct sample));
-
 
 	// If there's nothing to read, return 0
 	if ((count == 0) || (num_samples == 0)) {

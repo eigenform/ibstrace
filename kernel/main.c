@@ -47,8 +47,9 @@ static struct miscdevice ibstrace_dev = {
 };
 
 
-// Hack to resolve the address of some symbol during runtime via kprobes.
-// Wouldn't be suprised if this breaks in later kernel versions.
+// Cursed hack #1: 
+// This resolves the address of some symbol during runtime via kprobes. 
+// Don't be suprised if this breaks in future kernels.
 static u64 kprobe_resolve_sym(const char* name)
 {
 	int res;
@@ -66,10 +67,21 @@ static u64 kprobe_resolve_sym(const char* name)
 	return addr;
 }
 
+//// Cursed hack #2: 
+//// You might want to use this module to measure some snippit of code which
+//// intentionally causes an exception.  
+////
+//static struct exception_table_entry extable = {
+//	.insn = 0,
+//	.fixup = 0,
+//	.handler = 0,
+//};
 
 static __init int ibstrace_init(void)
 {
 	int err;
+
+	//THIS_MODULE->extable = &extable;
 
 #ifndef QEMU_BUILD
 	// Avoid initializing this module if IBS isn't supported on this machine
