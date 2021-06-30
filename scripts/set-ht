@@ -1,0 +1,16 @@
+#!/bin/bash
+# set-ht.sh
+
+if [[ -z $1 ]]; then echo "usage: $0 [off|on]"; exit -1; fi
+if [[ $EUID != 0 ]]; then echo "Must be root"; exit -1; fi
+
+SMT_CTRL=/sys/devices/system/cpu/smt/control
+
+if [[ ${1} == "off" ]]; then 
+	echo ${1} > ${SMT_CTRL}
+elif [[ ${1} == "on" ]]; then 
+	echo ${1} > ${SMT_CTRL}
+else
+	echo "usage: $0 [off|on]"
+	exit -1
+fi
