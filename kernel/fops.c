@@ -85,7 +85,7 @@ long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		state.code_buf_len = tmp.len;
-		pr_info("ibstrace: wrote %llu bytes\n", tmp.len);
+		//pr_info("ibstrace: wrote %llu bytes\n", tmp.len);
 		mutex_unlock(&state.in_use);
 		break;
 

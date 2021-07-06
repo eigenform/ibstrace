@@ -38,12 +38,13 @@ int ibs_nmi_handler(unsigned int cmd, struct pt_regs *regs)
 	// If the sample valid bit is set, this is an IBS NMI
 	if (ibs_op_ctl & IBS_OP_VAL) {
 
-		// If the IBS_OP_MAX_CNT is zeroed out, skip this sample
+		// If the IBS_OP_MAX_CNT is zeroed out, this is a hanging NMI 
+		// that occured after clearing the IBS_OP_EN bit - just exit
 		if (!(ibs_op_ctl & IBS_OP_MAX_CNT)) {
 			return NMI_HANDLED; 
 		}
 
-
+		// If this sample is too large for the pre-configured buffer length
 		long idx = atomic_long_read(&state.samples_collected);
 		if (idx >= state.sample_buf_capacity) {
 			return NMI_HANDLED;
