@@ -91,11 +91,11 @@ long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 	case IBSTRACE_CMD_MEASURE:
 		mutex_lock(&state.in_use);
-		pr_info("ibstrace: dispatching code ...\n");
+		//pr_info("ibstrace: dispatching code ...\n");
 		smp_call_function_single_async(TARGET_CPU, &trampoline_csd);
-		pr_info("ibstrace: waiting for lock ...\n");
+		//pr_info("ibstrace: waiting for lock ...\n");
 		mutex_lock(&state.in_use);
-		pr_info("ibstrace: measure ioctl() finished\n");
+		//pr_info("ibstrace: measure ioctl() finished\n");
 		mutex_unlock(&state.in_use);
 		break;
 

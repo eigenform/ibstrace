@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0
 
 #include <linux/linkage.h>
+#incldue <asm/delay.h>
+
 .intel_syntax noprefix
 
 // Trampoline into the buffer filled with user code.
 // RDI - address to user code
-// RSI - number of busy loop iterations
 //
 // It's easier just to write this in assembly so we can guarantee that our
 // sampling begins and ends as close to user code as possible.
@@ -21,8 +22,6 @@ SYM_FUNC_START(__trampoline_start)
 	pushfq
 
 #ifndef QEMU_BUILD
-	// Save the number of busy-loop iterations on the stack
-	push rsi
 
 	// Enable sampling with the following operations:
 	//
@@ -42,11 +41,8 @@ SYM_FUNC_START(__trampoline_start)
 
 
 #ifndef QEMU_BUILD
-	// Pop the number of busy-loop iterations from the stack, and save the 
-	// return value in RSI (we need RAX to deal with MSRs)
-
-	pop		rsi
-	mov		rdi, rax 
+	// Save the return value on the stack
+	push	rax
 
 	// Clear all bits in IBS_OP_CTL except for IBS_OP_VAL (18).
 	//
@@ -58,32 +54,24 @@ SYM_FUNC_START(__trampoline_start)
 	// last sample should be ignored.
 
 	mov		ecx, 0xc0011033
-	mov		eax, 0x00400000
+	mov		eax, 0x00040000
 	xor		edx, edx
 	wrmsr
 
 	// Wait in a busy loop for a hanging NMI to be dispatched and handled.
 	// You'll know this doesn't work if dmesg tells you about unexpected NMIs.
 
-.align 16
-	test	rsi, rsi
-	jz		3f
-	jmp		1f
-.align 16
-1:	jmp		2f
-.align 16
-2:	dec		rsi
-	jnz		2b
-3:	dec		rsi
+	mov		rdi, 0x1
+	call	__udelay
 
-	// Finally, zero out all the bits in IBS_OP_CTL and move the return
-	// value back from RDI to RAX.
-
+	// Finally, zero out all the bits in IBS_OP_CTL.
 	mov		ecx, 0xc0011033
 	xor		eax, eax
 	xor		edx, edx
 	wrmsr
-	mov		rax, rdi
+
+	// Restore the return value from user code
+	pop		rax
 #endif // QEMU_BUILD
 
 	popfq
