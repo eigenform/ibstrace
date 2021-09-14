@@ -10,10 +10,6 @@ prod:
 	$(MAKE) -C kernel/ prod
 qemu:
 	$(MAKE) -C kernel/ qemu
-test:
-	$(MAKE) -C test/
 
 clean:
 	$(MAKE) -C kernel/ clean
-	$(MAKE) -C user/ clean
-	$(MAKE) -C test/ clean

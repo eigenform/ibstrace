@@ -1,5 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
-
 #ifndef _IBSTRACE_H
 #define _IBSTRACE_H
 
@@ -7,10 +5,10 @@
 #include <linux/sched.h>
 
 // The target CPU used to execute and sample some code
-#define TARGET_CPU					4
+#define TARGET_CPU					0
 
 // The maximum capacity of the sample buffer (in number of samples)
-#define IBSTRACE_SAMPLE_CAPACITY	4096
+#define IBSTRACE_SAMPLE_CAPACITY	0x4000
 
 // ioctl() command: submit code to-be-measured
 #define IBSTRACE_CMD_WRITE			0x00001000

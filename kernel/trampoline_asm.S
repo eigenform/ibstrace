@@ -7,6 +7,7 @@
 
 // Trampoline into the buffer filled with user code.
 // RDI - address to user code
+// RSI - physical address of a scratch page
 //
 // It's easier just to write this in assembly so we can guarantee that our
 // sampling begins and ends as close to user code as possible.
@@ -35,13 +36,14 @@ SYM_FUNC_START(__trampoline_start)
 	wrmsr
 #endif // QEMU_BUILD
 
-
-	// Indirectly branch (return value in RAX)
-	call	rdi
-
+	// Call into user code (with some argument in RDI).
+	mov		rax, rdi
+	mov		rdi, rsi
+	call	rax
 
 #ifndef QEMU_BUILD
-	// Save the return value on the stack
+	// We might end up clobbering RAX before we return from the trampoline, 
+	// so save the return value from our measured code on the stack.
 	push	rax
 
 	// Clear all bits in IBS_OP_CTL except for IBS_OP_VAL (18).
@@ -60,6 +62,8 @@ SYM_FUNC_START(__trampoline_start)
 
 	// Wait in a busy loop for a hanging NMI to be dispatched and handled.
 	// You'll know this doesn't work if dmesg tells you about unexpected NMIs.
+	// We probably don't *need* to call __udelay() here (you could just write
+	// the loop in here), but whatever.
 
 	mov		rdi, 0x1
 	call	__udelay

@@ -8,5 +8,4 @@
 *.out
 *.bin
 *.elf
-user/ibstrace
 ibst-rs/target

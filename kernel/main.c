@@ -26,6 +26,10 @@ struct ibstrace_state state = {
 	.sample_buf_capacity = IBSTRACE_SAMPLE_CAPACITY,
 	.sample_buf_len = sizeof(struct sample) * IBSTRACE_SAMPLE_CAPACITY,
 	.samples_collected = ATOMIC_INIT(0),
+	.__scratch_page = NULL,
+	.scratch_page = NULL,
+	.scratch_page_paddr = 0,
+	.target_rip = NULL,
 };
 
 
@@ -124,12 +128,20 @@ static __init int ibstrace_init(void)
 
 	// Allocate space for sample data, and for user input.
 	mutex_init(&state.in_use);
+
+	state.__scratch_page = alloc_page(GFP_KERNEL_ACCOUNT | __GFP_ZERO);
+	state.scratch_page = page_address(state.__scratch_page);
+	state.scratch_page_paddr = page_to_pfn(state.__scratch_page) << PAGE_SHIFT;
+
 	state.code_buf = vmalloc(CODE_BUFFER_MAX_SIZE);
 	state.sample_buf = vmalloc(state.sample_buf_len);
 	set_memory_x((unsigned long)state.code_buf, CODE_BUFFER_PAGES);
+
 	pr_info("ibstrace: code_buf=%px\n", state.code_buf);
 	pr_info("ibstrace: sample_buf=%px\n", state.sample_buf);
 	pr_info("ibstrace: trampoline=%px\n", trampoline);
+	pr_info("ibstrace: scratch_page=%px\n", state.scratch_page);
+	pr_info("ibstrace: scratch_page_paddr=%lx\n", state.scratch_page_paddr);
 
 	return 0;
 }
@@ -137,6 +149,7 @@ static __init int ibstrace_init(void)
 static __exit void ibstrace_exit(void)
 {
 	set_memory_nx((unsigned long)state.code_buf, CODE_BUFFER_PAGES);
+	__free_page(state.__scratch_page);
 	vfree(state.code_buf);
 	vfree(state.sample_buf);
 

@@ -1,44 +1,33 @@
 //! Library for interfacing with the ibstrace kernel module and parsing
 //! AMD IBS micro-op samples.
 
-pub mod msr;
+#![feature(trait_alias)]
 
-pub mod ioctl {
-    pub const IBSTRACE_CHARDEV: &str = "/dev/ibstrace";
+pub mod ibs;
+pub mod codegen;
+pub mod util;
+pub mod ioctl;
+pub mod analysis;
 
-    pub const CMD_WRITE:    usize = 0x0000_1000;
-    pub const CMD_MEASURE:  usize = 0x0000_2000;
-    pub const CMD_SAMPLES:  usize = 0x0000_4000;
-    pub const CMD_CAPACITY: usize = 0x0000_8000;
-
-    #[repr(C)]
-    pub struct UserBuf { 
-        // Pointer to buffer with user code
-        ptr: *const u8, 
-        // Buffer length
-        len: usize 
-    }
-    impl UserBuf {
-        pub fn new(ptr: *const u8, len: usize) -> Self {
-            UserBuf { ptr, len }
-        }
-    }
-}
-
-
-/// A sample taken by the ibstrace kernel module.
+/// A sample taken by the `ibstrace` kernel module.
 #[derive(Clone, Default)]
 #[repr(C)]
 pub struct Sample {
-    pub ctl:   msr::IbsOpCtl, 
+    /// IBS OP sampling status register (IBS_OP_CTL).
+    pub ctl:   ibs::IbsOpCtl, 
+    /// Origin instruction pointer for this sample (IBS_OP_RIP).
     pub rip:   usize,
-    pub data:  msr::IbsOpData, 
-    pub data2: msr::IbsOpData2, 
-    pub data3: msr::IbsOpData3, 
+    /// Sample data (IBS_OP_DATA).
+    pub data:  ibs::IbsOpData, 
+    /// Sample data (IBS_OP_DATA2).
+    pub data2: ibs::IbsOpData2, 
+    /// Sample data (IBS_OP_DATA3).
+    pub data3: ibs::IbsOpData3, 
+    /// Linear address for tagged memory accesses (IBS_DC_LINADDR).
     pub linad: usize, 
+    /// Physical address for tagged memory accesses (IBS_DC_PHYSADDR).
     pub phyad: usize,
 }
-
 
 nix::ioctl_write_ptr_bad! {
     /// Submit code-to-be-measured to the kernel module. 
@@ -114,4 +103,32 @@ pub fn ibstrace_close(fd: i32) {
         Err(e) => panic!("{}", e),
     }
 }
+
+/// Execute and sample some code, returning a [Box] of [Sample] data.
+pub fn measure(fd: i32, msg: &ioctl::UserBuf) -> Box<[Sample]> {
+    unsafe { 
+        match ibstrace_write(fd, msg as *const ioctl::UserBuf) {
+            Ok(res) => if res < 0 { 
+                panic!("write failed with {}", res);
+            },
+            Err(e) => panic!("{}", e),
+        }
+        match ibstrace_measure(fd) { 
+            Ok(res) => if res < 0 { 
+                panic!("measure failed with {}", res);
+            },
+            Err(e) => panic!("{}", e),
+        }
+        let data = match ibstrace_read(fd) {
+            Ok(buf) => buf,
+            Err(e) => panic!("{}", e),
+        };
+
+        std::slice::from_raw_parts(
+            data.as_ptr() as *mut Sample,
+            data.len() / std::mem::size_of::<Sample>()
+        ).to_owned().into_boxed_slice()
+    }
+}
+
 

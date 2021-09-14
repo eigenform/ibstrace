@@ -27,7 +27,6 @@ impl IbsOpData {
     const OP_BRN_MISP_BIT:      usize = 0x0000_0010_0000_0000;
     const OP_BRN_TAKEN_BIT:     usize = 0x0000_0008_0000_0000;
     const OP_RETURN_BIT:        usize = 0x0000_0004_0000_0000;
-
     const TAG_TO_REG_CTR_MASK:  usize = 0x0000_0000_ffff_0000;
     const COMP_TO_RET_CTR_MASK: usize = 0x0000_0000_0000_ffff;
 
@@ -200,7 +199,7 @@ impl From<usize> for IbsMemWidth {
             0x3 => IbsMemWidth::Dword,
             0x4 => IbsMemWidth::Qword,
             0x5 => IbsMemWidth::Oword,
-            _ => panic!("unknown width value {}", x),
+            _ => panic!("Invalid/unsupported access width value {}", x),
         }
     }
 }

@@ -13,7 +13,7 @@
 #	https://wiki.ubuntu.com/Kernel/Dev/KernelGitGuide
 #
 # You can just install these on the guest and pull /usr/lib/debug/ onto the
-# host machine (it's uhhh like 7GB or something
+# host machine (it's uhhh like 7GB or something)
 
 # Copy the kernel image from the VM
 if [ ! -e /tmp/vmlinux-5.8.0-48-generic ]; then

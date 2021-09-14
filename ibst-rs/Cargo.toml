@@ -7,11 +7,20 @@ edition = "2018"
 
 [dependencies]
 nix = "0.21.0"
+dynasmrt = "1.0.1"
+yaxpeax-arch = "0.2.4"
+yaxpeax-x86 = "1.0.3"
+rand = "0.8.4"
+rand_xorshift = "0.3.0"
 
 [[bin]]
-name = "ibst-measure"
-path = "bin/ibst-measure.rs"
+name = "ibst-msr"
+path = "bin/ibst-msr.rs"
 
 [[bin]]
-name = "ibst-parse"
-path = "bin/ibst-parse.rs"
+name = "ibst-cpuid"
+path = "bin/ibst-cpuid.rs"
+
+[[bin]]
+name = "ibst-single"
+path = "bin/ibst-single.rs"
