@@ -31,9 +31,6 @@ struct ibstrace_state {
 	void *scratch_page;
 	// Physical address of the scratch page
 	unsigned long scratch_page_paddr;
-
-	// RIP value of a target instruction in the user code buffer
-	u64 target_rip;
 };
 
 #endif // _STATE_H

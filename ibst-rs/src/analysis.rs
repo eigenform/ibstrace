@@ -1,9 +1,10 @@
 
 use crate::*;
+use crate::codegen::TestParameters;
 use std::collections::{ BTreeSet, BTreeMap };
+use dynasmrt::{ AssemblyOffset, ExecutableBuffer };
 
-
-/// Type of memory access (load or store).
+/// Some type of memory access (either a load, or a store).
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MemoryAccessKind { LD, ST }
 
@@ -18,6 +19,7 @@ pub struct MemoryAccess {
     pub kind: MemoryAccessKind,
 }
 impl MemoryAccess {
+    /// Try to obtain a [MemoryAccess] from a [Sample].
     pub fn from_sample(sample: &Sample) -> Option<Self> {
         let kind = match (sample.data3.st_op(), sample.data3.ld_op()) {
             (true, false) => MemoryAccessKind::ST,
@@ -30,17 +32,43 @@ impl MemoryAccess {
     }
 }
 
+
+/// The results of a particular test.
+pub struct TestResult {
+    /// Information about the code emitted for this test.
+    pub params: TestParameters,
+    /// The resulting samples from this test.
+    pub result: Box<[Sample]>,
+}
+
+pub fn run_test(fd: i32, params: TestParameters) -> TestResult {
+    let msg = params.to_userbuf();
+    let result = crate::measure(fd, &msg);
+    TestResult { params, result }
+}
+
+
+pub fn filter_by_rip(samples: &[Sample], tgt_rip: usize) 
+    -> impl Iterator<Item = &Sample> 
+{
+    samples.iter().filter(move |&x| x.rip == tgt_rip)
+}
+
+
 /// Return a list of the *unique* memory accesses in some set of samples.
-pub fn get_uniq_accesses(samples: &[Sample]) -> BTreeSet<MemoryAccess> {
+pub fn get_uniq_accesses(samples: &[Sample], tgt_rip: usize) 
+    -> BTreeSet<MemoryAccess>
+{
     let mut uniq_accesses = BTreeSet::<MemoryAccess>::new();
-    for sample in samples.iter() {
+    //for sample in samples.iter() {
+    for sample in filter_by_rip(&samples, tgt_rip) {
         if sample.data.rip_invalid() { 
             continue; 
         }
         // We only care about microcoded instructions for now.
-        if !sample.data.op_microcode() { 
-            continue; 
-        }
+        //if !sample.data.op_microcode() { 
+        //    continue; 
+        //}
         let kind = match (sample.data3.st_op(), sample.data3.ld_op()) {
             (true, false) => MemoryAccessKind::ST,
             (false, true) => MemoryAccessKind::LD,
@@ -57,15 +85,16 @@ pub fn get_uniq_accesses(samples: &[Sample]) -> BTreeSet<MemoryAccess> {
 }
 
 
-pub fn print_uniq_map_accesses<K>(map: &BTreeMap<K, Box<[Sample]>>) where
-    K: Clone + Copy + Ord + std::fmt::Debug + std::fmt::LowerHex
+pub fn print_uniq_map_accesses<K>(map: &BTreeMap<K, TestResult>, buf: usize)
+    where K: Clone + Copy + Ord + std::fmt::Debug + std::fmt::LowerHex
 {
     let mut per_key_accs: BTreeMap<K, BTreeSet<MemoryAccess>> = BTreeMap::new();
     let mut unique_accs = BTreeMap::new();
     let mut common_accs = BTreeSet::new();
 
-    for (key, samples) in map {
-        per_key_accs.insert(*key, get_uniq_accesses(&samples));
+    for (key, test) in map {
+        let tgt_rip = buf + test.params.tgt_instr_off;
+        per_key_accs.insert(*key, get_uniq_accesses(&test.result, tgt_rip));
     }
     for (cur_key, accs) in &per_key_accs {
         let mut uniq = Vec::new();
@@ -106,5 +135,4 @@ pub fn print_uniq_map_accesses<K>(map: &BTreeMap<K, Box<[Sample]>>) where
         println!("");
     }
 }
-
 

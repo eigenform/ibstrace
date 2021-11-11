@@ -20,6 +20,10 @@
 //! restore execution in a way that doesn't involve hard-resetting my machine,
 //! but that would involve some cooperation with the kernel module.
 //!
+//! ## Writing tests
+//! The [emit_test_iters_rsi!()] macro is suitable for emitting simple loops,
+//! which you can use to test individual instructions.
+//!
 
 use dynasmrt::{ 
     dynasm, 
@@ -31,7 +35,34 @@ use dynasmrt::{
     x64::X64Relocation,
 };
 
+/// Description of the code generated/assembled for a particular test.
+///
+/// NOTE: Right now, this model assumes that we're interested in samples
+/// for a single "target" instruction within the stream.
+///
+pub struct TestParameters {
+    /// Buffer with code for this test.
+    pub buf: ExecutableBuffer,
+    /// Offset to a single "target" instruction within the buffer.
+    pub tgt_instr_off: usize,
+}
+impl TestParameters {
+    /// Create the appropriate ioctl message for this test.
+    pub fn to_userbuf(&self) -> crate::ioctl::UserBuf {
+        crate::ioctl::UserBuf::new(
+            self.buf.ptr(AssemblyOffset(0)), 
+            self.buf.len(),
+        )
+    }
+}
+
+
 /// Wrapper around dynasm for emitting a simple loop (decrementing RSI).
+///
+/// **WARNING:** When using this macro, you *must* create a global label named
+/// "target" - otherwise, this will panic when we fail to unwrap the offset
+/// to the target instruction during runtime. 
+///
 #[macro_export]
 macro_rules! emit_test_iters_rsi {
     ($num_iter:expr, $($t:tt)*) => { {
@@ -48,19 +79,28 @@ macro_rules! emit_test_iters_rsi {
             ; mov   rax, 42
             ; ret
         );
-        asm.finalize().unwrap()
+
+        let offset = match asm.labels().resolve_global("target") {
+            Ok(offset) => offset.0,
+            Err(e) => panic!("{:?}", e),
+        };
+
+        let buf = asm.finalize().unwrap();
+        TestParameters { buf, tgt_instr_off: offset }
     } }
 }
 
-pub fn emit_msr_test(msr: u32, iters: usize) -> ExecutableBuffer {
+pub fn emit_msr_test(msr: u32, iters: usize) -> TestParameters {
     emit_test_iters_rsi!(iters, 
         ; mov   ecx, msr as _
+        ; ->target:
         ; rdmsr
     )
 }
-pub fn emit_cpuid_test(cpuid_func: u32, iters: usize) -> ExecutableBuffer {
+pub fn emit_cpuid_test(cpuid_func: u32, iters: usize) -> TestParameters {
     emit_test_iters_rsi!(iters,
         ; mov   eax, cpuid_func as _
+        ; ->target:
         ; cpuid
     )
 }

@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 
 #include <linux/module.h>
+#include <linux/moduleparam.h>
+#include <linux/debugfs.h>
+
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/nmi.h>
@@ -20,6 +23,10 @@
 
 extern void trampoline(void *info);
 
+// Filled-in with hacky kprobe magic on module_init.
+static int (*set_memory_x)(unsigned long, int) = NULL;
+static int (*set_memory_nx)(unsigned long, int) = NULL;
+
 // Shared state associated with this module
 struct ibstrace_state state = {
 	.sample_buf = NULL,
@@ -29,12 +36,14 @@ struct ibstrace_state state = {
 	.__scratch_page = NULL,
 	.scratch_page = NULL,
 	.scratch_page_paddr = 0,
-	.target_rip = NULL,
 };
 
-
-static int (*set_memory_x)(unsigned long, int) = NULL;
-static int (*set_memory_nx)(unsigned long, int) = NULL;
+// We might want to leak some addresses to user programs via debugfs.
+struct dentry *ibstrace_debugfs_dir = NULL;
+static u64 debugfs_code_buf;
+static u64 debugfs_sample_buf;
+static u64 debugfs_scratch_page;
+static u64 debugfs_scratch_page_paddr;
 
 // File operations for the character device
 static const struct file_operations ibstrace_fops = {
@@ -71,21 +80,9 @@ static u64 kprobe_resolve_sym(const char* name)
 	return addr;
 }
 
-//// Cursed hack #2: 
-//// You might want to use this module to measure some snippit of code which
-//// intentionally causes an exception.  
-////
-//static struct exception_table_entry extable = {
-//	.insn = 0,
-//	.fixup = 0,
-//	.handler = 0,
-//};
-
 static __init int ibstrace_init(void)
 {
 	int err;
-
-	//THIS_MODULE->extable = &extable;
 
 #ifndef QEMU_BUILD
 	// Avoid initializing this module if IBS isn't supported on this machine
@@ -137,11 +134,25 @@ static __init int ibstrace_init(void)
 	state.sample_buf = vmalloc(state.sample_buf_len);
 	set_memory_x((unsigned long)state.code_buf, CODE_BUFFER_PAGES);
 
-	pr_info("ibstrace: code_buf=%px\n", state.code_buf);
-	pr_info("ibstrace: sample_buf=%px\n", state.sample_buf);
-	pr_info("ibstrace: trampoline=%px\n", trampoline);
-	pr_info("ibstrace: scratch_page=%px\n", state.scratch_page);
-	pr_info("ibstrace: scratch_page_paddr=%lx\n", state.scratch_page_paddr);
+	// Set up debugfs entries
+	ibstrace_debugfs_dir = debugfs_create_dir("ibstrace", NULL);
+	if (ibstrace_debugfs_dir != NULL) {
+		debugfs_code_buf = (u64)(state.code_buf);
+		debugfs_sample_buf = (u64)(state.sample_buf);
+		debugfs_scratch_page = (u64)(state.scratch_page);
+		debugfs_scratch_page_paddr = (u64)(state.scratch_page_paddr);
+
+		debugfs_create_x64("code_buf", 0444, ibstrace_debugfs_dir, 
+				&debugfs_code_buf);
+		debugfs_create_x64("sample_buf", 0444, ibstrace_debugfs_dir, 
+				&debugfs_sample_buf);
+		debugfs_create_x64("scratch_page", 0444, ibstrace_debugfs_dir, 
+				&debugfs_scratch_page);
+		debugfs_create_x64("scratch_page_paddr", 0444, ibstrace_debugfs_dir, 
+				&debugfs_scratch_page_paddr);
+
+		pr_info("ibstrace: see /sys/kernel/debug/ibstrace for info\n");
+	}
 
 	return 0;
 }
@@ -159,6 +170,9 @@ static __exit void ibstrace_exit(void)
 #endif 
 
 	misc_deregister(&ibstrace_dev);
+	if (ibstrace_debugfs_dir != NULL) {
+		debugfs_remove_recursive(ibstrace_debugfs_dir);
+	}
 	pr_info("ibstrace: unloaded module\n");
 }
 

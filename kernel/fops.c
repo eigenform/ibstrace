@@ -51,7 +51,7 @@ out:
 
 long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	int res = 0;
+	long int res = 0;
 	long num_samples;
 
 	switch (cmd) {
@@ -97,7 +97,7 @@ long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		res = num_samples;
 		mutex_unlock(&state.in_use);
 		break;
-	
+
 	case IBSTRACE_CMD_CAPACITY:
 		mutex_lock(&state.in_use);
 		res = IBSTRACE_SAMPLE_CAPACITY;

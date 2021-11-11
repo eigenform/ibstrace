@@ -11,7 +11,7 @@ pub struct UserBuf {
     // Pointer to buffer with user code
     ptr: *const u8, 
     // Buffer length
-    len: usize 
+    len: usize,
 }
 impl UserBuf {
     pub fn new(ptr: *const u8, len: usize) -> Self {

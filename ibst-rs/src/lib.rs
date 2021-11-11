@@ -104,6 +104,21 @@ pub fn ibstrace_close(fd: i32) {
     }
 }
 
+/// Return the base address of the code buffer.
+///
+/// NOTE: This is not very pretty, but I didn't want to add more ioctls.
+pub fn get_base_address() -> Result<usize, &'static str> {
+    use std::fs::read_to_string;
+    match read_to_string("/sys/kernel/debug/ibstrace/code_buf") {
+        Ok(s) => {
+            println!("{}", &s[2..]);
+            let x = s[2..].strip_suffix("\n").unwrap();
+            Ok(usize::from_str_radix(x, 16).unwrap())
+        }
+        Err(e) => panic!("{}", e),
+    }
+}
+
 /// Execute and sample some code, returning a [Box] of [Sample] data.
 pub fn measure(fd: i32, msg: &ioctl::UserBuf) -> Box<[Sample]> {
     unsafe { 

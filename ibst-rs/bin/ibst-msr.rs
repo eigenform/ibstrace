@@ -6,17 +6,13 @@ use ibst::Sample;
 use ibst::analysis::*;
 
 /// Test a single MSR read, returning a list of unique memory accesses.
-fn sample_msr(fd: i32, msr: u32, iters: usize) -> Box<[Sample]> {
-    let code = ibst::codegen::emit_msr_test(msr, iters);
-    let msg = ibst::ioctl::UserBuf::new(
-        code.ptr(AssemblyOffset(0)), code.len()
-    );
-    ibst::measure(fd, &msg)
+fn sample_msr(fd: i32, msr: u32, iters: usize) -> TestResult {
+    run_test(fd, ibst::codegen::emit_msr_test(msr, iters))
 }
 
 /// Test a list of MSRs, returning a map from ECX values to lists of unique 
 /// memory accesses.
-fn sample_msr_set(fd: i32, msr_list: &[u32]) -> BTreeMap<u32, Box<[Sample]>> {
+fn sample_msr_set(fd: i32, msr_list: &[u32]) -> BTreeMap<u32, TestResult> {
     let mut map = BTreeMap::new();
     for msr in msr_list.iter() {
         eprintln!("sampling {:08x}", msr);
@@ -42,13 +38,11 @@ fn main() -> Result<(), &'static str> {
         }
     }
 
-    let fd = match ibst::ibstrace_open() {
-        Ok(fd) => fd,
-        Err(e) => return Err(e),
-    };
+    let base_addr = ibst::get_base_address()?;
+    let fd = ibst::ibstrace_open()?;
 
     let per_msr_samples = sample_msr_set(fd, &msr_list);
-    print_uniq_map_accesses(&per_msr_samples);
+    print_uniq_map_accesses(&per_msr_samples, base_addr);
 
     ibst::ibstrace_close(fd);
     Ok(())
