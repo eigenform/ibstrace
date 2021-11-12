@@ -26,6 +26,13 @@ static void read_sample_data(struct sample *sample, struct pt_regs *regs)
 	rdmsrl(IBS_DC_LIN_AD, sample->dc_lin_addr);
 	rdmsrl(IBS_DC_PHYS_AD, sample->dc_phys_addr);
 	rdmsrl(IBS_OP_RIP, sample->op_rip);
+
+	wrmsrl(IBS_OP_DATA, 0);
+	wrmsrl(IBS_OP_DATA2, 0);
+	wrmsrl(IBS_OP_DATA3, 0);
+	wrmsrl(IBS_DC_LIN_AD, 0);
+	wrmsrl(IBS_DC_PHYS_AD, 0);
+	wrmsrl(IBS_OP_RIP, 0);
 }
 
 // The handler for IBS non-maskable interrupts. 
