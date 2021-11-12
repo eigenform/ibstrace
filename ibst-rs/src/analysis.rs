@@ -1,5 +1,6 @@
 
 use crate::*;
+use crate::ibs::*;
 use crate::codegen::TestParameters;
 use std::collections::{ BTreeSet, BTreeMap };
 use dynasmrt::{ AssemblyOffset, ExecutableBuffer };
@@ -52,6 +53,63 @@ pub fn filter_by_rip(samples: &[Sample], tgt_rip: usize)
     -> impl Iterator<Item = &Sample> 
 {
     samples.iter().filter(move |&x| x.rip == tgt_rip)
+}
+
+pub fn print_samples(samples: &[Sample], tgt_rip: usize) {
+    for (idx, s) in filter_by_rip(&samples, tgt_rip).enumerate() {
+        println!("======== Sample {:08} ========", idx);
+        println!("[*] IbsOpData: {:016x}", s.data.0);
+        println!("  tag-to-retire count:        {}", s.data.tag_to_ret_ctr());
+        println!("  completion-to-retire count: {}", s.data.comp_to_ret_ctr());
+        if s.data.op_microcode() { println!("  microcode op") }
+        if s.data.op_brn_fuse() {  println!("  fused branch"); }
+        if s.data.rip_invalid() {  println!("  RIP invalid"); }
+        if s.data.op_brn_ret() {   println!("  retired branch"); }
+        if s.data.op_brn_misp() {  println!("  mispredicted branch"); }
+        if s.data.op_brn_taken() { println!("  taken branch"); }
+        if s.data.op_brn_ret() {   println!("  return op"); }
+
+        println!("[*] IbsOpData2: {:016x}", s.data2.0);
+        if s.data2.data_src() != NbDataSrc::Invalid {
+            println!("  Data source: {:?}", s.data2.data_src());
+            if s.data2.data_src() == NbDataSrc::Cache {
+                println!("  Cache hit state: {}", s.data2.cache_hit_st());
+            }
+        }
+        println!("[*] IbsOpData3: {:016x}", s.data3.0);
+        if s.data3.0 != 0 {
+            println!("  PhyAddr: {:016x} (valid={})", 
+                s.phyad, s.data3.dc_phy_addr_valid());
+            println!("  LinAddr: {:016x} (valid={})", 
+                s.linad, s.data3.dc_lin_addr_valid());
+            println!("  Width:   {:?}", s.data3.op_mem_width());
+            if s.data3.st_op() { println!("  Store op"); }
+            if s.data3.ld_op() { println!("  Load op"); }
+
+            if s.data3.sw_pf() { 
+                println!("  Software prefetch op"); 
+            }
+            if s.data3.dc_l2_miss() { 
+                println!("  L2 cache miss"); 
+            }
+            if s.data3.dc_miss() { 
+                println!("  Data cache miss");
+            }
+            if s.data3.dc_mis_acc() {
+                println!("  Misaligned access (crossing cache line)");
+            }
+            if s.data3.dc_locked_op() {
+                println!("  Locked op");
+            }
+            if s.data3.dc_uc_mem_acc() {
+                println!("  Uncacheable access");
+            }
+            if s.data3.dc_uc_mem_acc() {
+                println!("  Write-combining access");
+            }
+        }
+        println!("");
+    }
 }
 
 

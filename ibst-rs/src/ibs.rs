@@ -4,7 +4,7 @@
 
 
 /// MSRC001_1033 [IBS Execution Control] (Core::X86::Msr::IBS_OP_CTL)
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct IbsOpCtl(pub usize);
 impl IbsOpCtl {
@@ -16,7 +16,7 @@ impl IbsOpCtl {
 }
 
 /// MSRC001_1035 [IBS Op Data] (Core::X86::Msr::IBS_OP_DATA)
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct IbsOpData(pub usize);
 impl IbsOpData {
@@ -59,17 +59,54 @@ impl IbsOpData {
     }
 }
 
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+pub enum NbDataSrc {
+    Invalid,
+    Reserved1,
+    Cache,
+    Dram,
+    Reserved4,
+    Reserved5,
+    Reserved6,
+    Other,
+}
+impl From<usize> for NbDataSrc{  
+    fn from(x: usize) -> Self {
+        match x {
+            0 => Self::Invalid,
+            1 => Self::Reserved1,
+            2 => Self::Cache,
+            3 => Self::Dram,
+            4 => Self::Reserved4,
+            5 => Self::Reserved5,
+            6 => Self::Reserved6,
+            7 => Self::Other,
+            _ => unimplemented!(),
+        }
+    }
+}
+
 /// MSRC001_1036 [IBS Op Data 2] (Core::X86::Msr::IBS_OP_DATA2)
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct IbsOpData2(pub usize);
 impl IbsOpData2 {
     const CACHE_HIT_ST_BIT:     usize = (1 << 5);
     const RMT_NODE_BIT:         usize = (1 << 4);
+    const DATA_SRC_MASK:        usize = 0x0000_0000_0000_0007;
+    pub fn cache_hit_st(&self) -> bool {
+        (self.0 & Self::CACHE_HIT_ST_BIT) != 0 
+    }
+    pub fn rmt_node(&self) -> bool {
+        (self.0 & Self::RMT_NODE_BIT) != 0 
+    }
+    pub fn data_src(&self) -> NbDataSrc {
+        NbDataSrc::from(self.0 & Self::DATA_SRC_MASK)
+    }
 }
 
 /// MSRC001_1037 [IBS Op Data 3] (Core::X86::Msr::IBS_OP_DATA3)
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct IbsOpData3(pub usize);
 impl IbsOpData3 {
@@ -180,7 +217,7 @@ impl IbsOpData3 {
 /// Representing load/store width values captured by IBS.
 ///
 /// See the IBS_OP_DATA3 entry in the PPR for Family 17h Model 71h.
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 #[repr(usize)]
 pub enum IbsMemWidth {
     None    = 0,

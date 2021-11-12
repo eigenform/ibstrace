@@ -10,7 +10,7 @@ pub mod ioctl;
 pub mod analysis;
 
 /// A sample taken by the `ibstrace` kernel module.
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Eq, PartialEq)]
 #[repr(C)]
 pub struct Sample {
     /// IBS OP sampling status register (IBS_OP_CTL).
