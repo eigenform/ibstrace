@@ -1,14 +1,21 @@
 //! Related MSR definitions for AMD IBS.
 //!
 //! See "PPR for AMD Family 17h Model 71h B0".
+//!
+//! NOTE: You're deriving `Hash` for all of these, but there are some fields
+//! that you might not want to hash when distinguishing between unique 
+//! samples.
 
+use std::hash::{Hash, Hasher};
 
 /// MSRC001_1033 [IBS Execution Control] (Core::X86::Msr::IBS_OP_CTL)
-#[derive(Clone, Copy, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Default, Eq, PartialEq, Ord, PartialOrd)]
 #[repr(transparent)]
 pub struct IbsOpCtl(pub usize);
 impl IbsOpCtl {
-    const CUR_CNT_MASK: usize = 0x07ff_ffff_0000_0000;
+    const RES_63_59_MASK:   usize = 0xf100_0000_0000_0000;
+    const CUR_CNT_MASK:     usize = 0x07ff_ffff_0000_0000;
+    const RES_31_27_MASK:   usize = 0x0000_0000_f100_0000;
 
     pub fn cur_cnt(&self) -> usize { 
         (self.0 & Self::CUR_CNT_MASK) >> 32 
@@ -16,10 +23,11 @@ impl IbsOpCtl {
 }
 
 /// MSRC001_1035 [IBS Op Data] (Core::X86::Msr::IBS_OP_DATA)
-#[derive(Clone, Copy, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Default, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[repr(transparent)]
 pub struct IbsOpData(pub usize);
 impl IbsOpData {
+    const RES_63_41_MASK:       usize = 0xffff_fe00_0000_0000;
     const OP_MICROCODE_BIT:     usize = 0x0000_0100_0000_0000;
     const OP_BRN_FUSE_BIT:      usize = 0x0000_0080_0000_0000;
     const RIP_INVALID_BIT:      usize = 0x0000_0040_0000_0000;
@@ -27,8 +35,12 @@ impl IbsOpData {
     const OP_BRN_MISP_BIT:      usize = 0x0000_0010_0000_0000;
     const OP_BRN_TAKEN_BIT:     usize = 0x0000_0008_0000_0000;
     const OP_RETURN_BIT:        usize = 0x0000_0004_0000_0000;
+    const RES_33_32_MASK:       usize = 0x0000_0003_0000_0000;
     const TAG_TO_REG_CTR_MASK:  usize = 0x0000_0000_ffff_0000;
     const COMP_TO_RET_CTR_MASK: usize = 0x0000_0000_0000_ffff;
+
+    pub fn res_hi(&self) -> usize { (self.0 & Self::RES_63_41_MASK) >> 41 }
+    pub fn res_lo(&self) -> usize { (self.0 & Self::RES_33_32_MASK) >> 32 }
 
     pub fn op_microcode(&self) -> bool { 
         (self.0 & Self::OP_MICROCODE_BIT) != 0 
@@ -59,7 +71,7 @@ impl IbsOpData {
     }
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug, Hash)]
 pub enum NbDataSrc {
     Invalid,
     Reserved1,
@@ -87,7 +99,7 @@ impl From<usize> for NbDataSrc{
 }
 
 /// MSRC001_1036 [IBS Op Data 2] (Core::X86::Msr::IBS_OP_DATA2)
-#[derive(Clone, Copy, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Default, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[repr(transparent)]
 pub struct IbsOpData2(pub usize);
 impl IbsOpData2 {
@@ -106,7 +118,7 @@ impl IbsOpData2 {
 }
 
 /// MSRC001_1037 [IBS Op Data 3] (Core::X86::Msr::IBS_OP_DATA3)
-#[derive(Clone, Copy, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Default, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[repr(transparent)]
 pub struct IbsOpData3(pub usize);
 impl IbsOpData3 {
@@ -131,6 +143,8 @@ impl IbsOpData3 {
     const DC_UC_MEM_ACC_BIT:    usize = 0x0000_0000_0000_4000;
     const DC_WC_MEM_ACC_BIT:    usize = 0x0000_0000_0000_2000;
 
+    const RES_12_9_MASK:        usize = 0x0000_0000_0000_1e00;
+
     const DC_MIS_ACC_BIT:       usize = 0x0000_0000_0000_0100;
     const DC_MISS_BIT:          usize = 0x0000_0000_0000_0080;
     const DC_L2TLB_HIT_2M_BIT:  usize = 0x0000_0000_0000_0040;
@@ -141,6 +155,9 @@ impl IbsOpData3 {
     const ST_OP_BIT:            usize = 0x0000_0000_0000_0002;
     const LD_OP_BIT:            usize = 0x0000_0000_0000_0001;
 
+    pub fn res_lo(&self) -> usize {
+        (self.0 & Self::RES_12_9_MASK) >> 9
+    }
 
     pub fn tlb_refill_lat(&self) -> usize { 
         (self.0 & Self::TLB_REFILL_LAT_MASK) >> 48 
@@ -217,7 +234,7 @@ impl IbsOpData3 {
 /// Representing load/store width values captured by IBS.
 ///
 /// See the IBS_OP_DATA3 entry in the PPR for Family 17h Model 71h.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 #[repr(usize)]
 pub enum IbsMemWidth {
     None    = 0,

@@ -21,8 +21,6 @@
 #include "nmi.h"
 
 
-extern void trampoline(void *info);
-
 // Filled-in with hacky kprobe magic on module_init.
 static int (*set_memory_x)(unsigned long, int) = NULL;
 static int (*set_memory_nx)(unsigned long, int) = NULL;

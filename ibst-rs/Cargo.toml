@@ -10,6 +10,7 @@ nix = "0.21.0"
 dynasmrt = "1.0.1"
 yaxpeax-arch = "0.2.4"
 yaxpeax-x86 = "1.0.3"
+iced-x86 = "1.15.0"
 rand = "0.8.4"
 rand_xorshift = "0.3.0"
 

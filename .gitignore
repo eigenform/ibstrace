@@ -9,3 +9,4 @@
 *.bin
 *.elf
 ibst-rs/target
+data/

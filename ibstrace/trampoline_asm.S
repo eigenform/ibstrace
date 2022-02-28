@@ -7,7 +7,7 @@
 
 // Trampoline into the buffer filled with user code.
 // RDI - address to user code
-// RSI - physical address of a scratch page
+// RSI - virtual address of some scratch page
 //
 // It's easier just to write this in assembly so we can guarantee that our
 // sampling begins and ends as close to user code as possible.
@@ -27,12 +27,26 @@ SYM_FUNC_START(__trampoline_start)
 	// Enable sampling with the following operations:
 	//
 	//	- Read IBS_OP_CTL into EDX:EAX
-	//	- Set IBS_OP_CNT_CTL (19), IBS_OP_EN (17), and IBS_OP_MAX_CNT
+	//	- Set IBS_OP_CNT_CTL (19), IBS_OP_EN (17), and IBS_OP_MAX_CNT ([15:0])
 	//	- Write back IBS_OP_CTL to enable sampling
+	//
+	// NOTE: The low 4 bits in the op counter are hardware-randomized.
+	// IBS_OP_MAX_CNT actually maps to bits [19:4] in the counter.
+	// The value set here has to be large enough such that, by the time the
+	// counter overflows and tags a micro-op, we've entered the user's code.
+	//
+	// [More] importantly, the same constraint also applies for the return 
+	// path from the NMI handler, which is probably longer than the path from
+	// this 'wrmsr' to user code. 
+	//
+	// The only actual solution to these worries involves *not* implementing 
+	// this as a Linux kernel module (and instead, having this entire scheme
+	// as a purpose-built kernel where the path between IBS NMIs and measured 
+	// code is as short as possible).
 
 	mov		ecx, 0xc0011033
 	rdmsr   
-	or		eax, 0xa0100
+	or		eax, 0x000a0100
 	wrmsr
 #endif // QEMU_BUILD
 

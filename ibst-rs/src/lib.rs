@@ -9,8 +9,10 @@ pub mod util;
 pub mod ioctl;
 pub mod analysis;
 
+use std::hash::{Hash, Hasher};
+
 /// A sample taken by the `ibstrace` kernel module.
-#[derive(Clone, Default, Eq, PartialEq)]
+#[derive(Clone, Default, Ord, PartialOrd)]
 #[repr(C)]
 pub struct Sample {
     /// IBS OP sampling status register (IBS_OP_CTL).
@@ -27,6 +29,28 @@ pub struct Sample {
     pub linad: usize, 
     /// Physical address for tagged memory accesses (IBS_DC_PHYSADDR).
     pub phyad: usize,
+}
+impl PartialEq for Sample {
+    fn eq(&self, other: &Self) -> bool {
+        self.rip == other.rip &&
+        self.data == other.data &&
+        self.data2 == other.data2 &&
+        self.data3 == other.data3 && 
+        self.linad == other.linad &&
+        self.phyad == other.phyad
+    }
+}
+impl Eq for Sample {}
+
+impl Hash for Sample {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.rip.hash(state);
+        self.data.hash(state);
+        self.data2.hash(state);
+        self.data3.hash(state);
+        self.linad.hash(state);
+        self.phyad.hash(state);
+    }
 }
 
 nix::ioctl_write_ptr_bad! {

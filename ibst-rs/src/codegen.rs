@@ -35,6 +35,48 @@ use dynasmrt::{
     x64::X64Relocation,
 };
 
+// NOP encodings from length 1-15 (single instructions).
+//
+// See AMD publication 56305 (Rev. 3.00), "Software Optimization Guide for AMD 
+// Family 17h Models 30h and Greater Processors", from section 2.8.3.1 
+// "Encoding Padding for Loop Alignment", page 29.
+
+const NOP1: [u8;1] = [ 0x90 ];
+const NOP2: [u8;2] = [ 0x66, 0x90 ];
+const NOP3: [u8;3] = [ 0x0F, 0x1F, 0x00 ];
+const NOP4: [u8;4] = [ 0x0F, 0x1F, 0x40, 0x00 ];
+const NOP5: [u8;5] = [ 0x0F, 0x1F, 0x44, 0x00, 0x00 ];
+const NOP6: [u8;6] = [ 0x66, 0x0F, 0x1F, 0x44, 0x00, 0x00 ];
+const NOP7: [u8;7] = [ 0x0F, 0x1F, 0x80, 0x00, 0x00, 0x00, 0x00 ];
+const NOP8: [u8;8] = [ 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 ];
+const NOP9: [u8;9] = [ 0x66, 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 ];
+const NOP10: [u8;10] = [ 
+    0x66, 0x66, 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 
+];
+const NOP11: [u8;11] = [ 
+    0x66, 0x66, 0x66, 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 
+];
+const NOP12: [u8;12] = [ 
+    0x66, 0x66, 0x66, 0x66, 0x0F, 0x1F, 0x84, 
+    0x00, 0x00, 0x00, 0x00, 0x00 
+];
+const NOP13: [u8;13] = [ 
+    0x66, 0x66, 0x66, 0x66, 0x66, 0x0F, 0x1F, 0x84, 
+    0x00, 0x00, 0x00, 0x00, 0x00 
+];
+const NOP14: [u8;14] = [ 
+    0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x0F, 0x1F, 0x84, 
+    0x00, 0x00, 0x00, 0x00, 0x00
+];
+const NOP15: [u8;15] = [ 
+    0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x0F, 0x1F, 0x84, 
+    0x00, 0x00, 0x00, 0x00, 0x00
+];
+
+
+
+
+
 /// Description of the code generated/assembled for a particular test.
 ///
 /// NOTE: Right now, this model assumes that we're interested in samples
@@ -55,6 +97,63 @@ impl TestParameters {
         )
     }
 }
+
+
+#[macro_export]
+macro_rules! emit_test {
+    ($num_iter:expr, {$($pre:tt)*}, {$($body:tt)*}) => { {
+        let mut asm = Assembler::<X64Relocation>::new().unwrap();
+        dynasm!(asm
+            ; .arch x64
+
+            $($pre)*
+
+            ; mov   rsi, $num_iter as _
+            ; .align 64
+            ; ->loop_start:
+
+            $($body)*
+
+            ; sub   rsi, 1
+            ; jne   ->loop_start
+
+            ; mov   rax, 42
+            ; ret
+        );
+
+        let offset = match asm.labels().resolve_global("target") {
+            Ok(offset) => offset.0,
+            Err(e) => panic!("{:?}", e),
+        };
+
+        let buf = asm.finalize().unwrap();
+        TestParameters { buf, tgt_instr_off: offset }
+    } }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::codegen::*;
+    use crate::util::*;
+    #[test]
+    fn test() {
+        let msr: u32 = 0xc0010200;
+        let t = emit_test!(0x1000,
+            {
+                ; mov ecx, msr as _
+                ; xor ecx, ecx
+            },
+            {
+                ; mov ecx, msr as _
+                ; ->target:
+                ; rdmsr
+            }
+        );
+        disas(&t.buf);
+    }
+
+}
+
 
 
 /// Wrapper around dynasm for emitting a simple loop (decrementing RSI).

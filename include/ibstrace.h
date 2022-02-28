@@ -8,7 +8,7 @@
 #define TARGET_CPU					0
 
 // The maximum capacity of the sample buffer (in number of samples)
-#define IBSTRACE_SAMPLE_CAPACITY	0x4000
+#define IBSTRACE_SAMPLE_CAPACITY	0x40000
 
 // ioctl() command: submit code to-be-measured
 #define IBSTRACE_CMD_WRITE			0x00001000

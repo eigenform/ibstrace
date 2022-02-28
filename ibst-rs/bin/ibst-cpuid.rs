@@ -18,13 +18,12 @@ fn sample_cpuid_known(fd: i32) -> BTreeMap<u32, TestResult> {
         let samples = sample_cpuid_single(fd, eax, 0x100000);
         map.insert(eax, samples);
     }
-    for eax in 0x8000_0000..=0x8000_0020 {
+    for eax in 0x8000_0000..=0x8000_0021 {
         let samples = sample_cpuid_single(fd, eax, 0x100000);
         map.insert(eax, samples);
     }
     map
 }
-
 
 fn main() -> Result<(), &'static str> {
     let base_addr = ibst::get_base_address()?;

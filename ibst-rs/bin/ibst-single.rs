@@ -1,3 +1,9 @@
+//! One-off tests.
+//!
+//! ## Observations
+//!
+//!
+
 use dynasmrt::{ 
     dynasm, DynasmApi, DynasmLabelApi,
     Assembler, AssemblyOffset, 
@@ -7,28 +13,38 @@ use ibst::emit_test_iters_rsi;
 use ibst::codegen::*;
 use ibst::analysis::*;
 
+use ibst::Sample;
+use std::collections::{HashMap, BTreeSet, BTreeMap};
+
+const RDPRU: [u8; 3] = [ 0x0f, 0x01, 0xfd ];
+const WBNOINVD: [u8; 3] = [ 0xf3, 0x0f, 0x09];
+const RDSSPQ_RAX: [u8; 5] = [ 0xf3, 0x48, 0x0f, 0x1e, 0xc8 ];
+
+fn gentest(val: u32, iters: usize) -> TestParameters {
+    emit_test_iters_rsi!(iters,
+        ; xor eax, eax
+        ; xor edx, edx
+        ; mov ecx, val as _
+        ; ->target:
+        ; rdpmc
+    )
+}
+
+
+
 fn main() -> Result<(), &'static str> {
 
     let base_addr = ibst::get_base_address()?;
     let fd = ibst::ibstrace_open()?;
 
-    let msr: u32 = 0xc0010141;
-    let test = run_test(fd, emit_test_iters_rsi!(0x10000,
-        ; xor edx, edx
-        ; xor eax, eax
-        ; mov ecx, msr as _
-        ; ->target:
-        ; rdmsr
-    ));
+    let params = gentest(0, 0x400000);
+    let rip = base_addr + params.tgt_instr_off;
+    let res = run_test(fd, params);
+    println!("[*] Collected {} samples", res.result.len());
+    print_load_lat_dist(&res.result, rip);
 
-    let rip = test.params.tgt_instr_off + base_addr;
-
-    print_samples(&test.result, rip);
-
-    //let uniq_accesses = get_uniq_accesses(&test.result, rip);
-    //for acc in &uniq_accesses {
-    //    println!("{:?} {:016x} {:02}", acc.kind, acc.phys, acc.width);
-    //}
+    //print_samples(&res.result, rip);
+    //print_uniq_samples(&res.result, rip);
 
     ibst::ibstrace_close(fd);
     Ok(())

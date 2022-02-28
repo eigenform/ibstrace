@@ -16,7 +16,7 @@ fn sample_msr_set(fd: i32, msr_list: &[u32]) -> BTreeMap<u32, TestResult> {
     let mut map = BTreeMap::new();
     for msr in msr_list.iter() {
         eprintln!("sampling {:08x}", msr);
-        let samples = sample_msr(fd, *msr, 0x10000);
+        let samples = sample_msr(fd, *msr, 0x40000);
         map.insert(*msr, samples);
     }
     map

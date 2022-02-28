@@ -7,9 +7,9 @@ options:
 	@echo " 	make qemu - Build kernel module for testing w/ QEMU"
 
 prod:
-	$(MAKE) -C kernel/ prod
+	@echo "# Building ibstrace kernel module ..."
+	$(MAKE) -C ibstrace/ prod
 qemu:
-	$(MAKE) -C kernel/ qemu
-
+	$(MAKE) -C ibstrace/ qemu
 clean:
-	$(MAKE) -C kernel/ clean
+	$(MAKE) -C ibstrace/ clean
