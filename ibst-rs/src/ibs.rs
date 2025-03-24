@@ -35,12 +35,25 @@ impl IbsOpData {
     const OP_BRN_MISP_BIT:      usize = 0x0000_0010_0000_0000;
     const OP_BRN_TAKEN_BIT:     usize = 0x0000_0008_0000_0000;
     const OP_RETURN_BIT:        usize = 0x0000_0004_0000_0000;
+
+    const RES_33:               usize = 0x0000_0002_0000_0000;
+    const RES_32:               usize = 0x0000_0001_0000_0000;
     const RES_33_32_MASK:       usize = 0x0000_0003_0000_0000;
+
     const TAG_TO_REG_CTR_MASK:  usize = 0x0000_0000_ffff_0000;
     const COMP_TO_RET_CTR_MASK: usize = 0x0000_0000_0000_ffff;
 
     pub fn res_hi(&self) -> usize { (self.0 & Self::RES_63_41_MASK) >> 41 }
     pub fn res_lo(&self) -> usize { (self.0 & Self::RES_33_32_MASK) >> 32 }
+
+    pub fn res_33(&self) -> bool { 
+        (self.0 & Self::RES_33) != 0 
+    }
+    pub fn res_32(&self) -> bool { 
+        (self.0 & Self::RES_32) != 0 
+    }
+
+
 
     pub fn op_microcode(&self) -> bool { 
         (self.0 & Self::OP_MICROCODE_BIT) != 0 

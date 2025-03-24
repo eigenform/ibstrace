@@ -41,34 +41,34 @@ use dynasmrt::{
 // Family 17h Models 30h and Greater Processors", from section 2.8.3.1 
 // "Encoding Padding for Loop Alignment", page 29.
 
-const NOP1: [u8;1] = [ 0x90 ];
-const NOP2: [u8;2] = [ 0x66, 0x90 ];
-const NOP3: [u8;3] = [ 0x0F, 0x1F, 0x00 ];
-const NOP4: [u8;4] = [ 0x0F, 0x1F, 0x40, 0x00 ];
-const NOP5: [u8;5] = [ 0x0F, 0x1F, 0x44, 0x00, 0x00 ];
-const NOP6: [u8;6] = [ 0x66, 0x0F, 0x1F, 0x44, 0x00, 0x00 ];
-const NOP7: [u8;7] = [ 0x0F, 0x1F, 0x80, 0x00, 0x00, 0x00, 0x00 ];
-const NOP8: [u8;8] = [ 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 ];
-const NOP9: [u8;9] = [ 0x66, 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 ];
-const NOP10: [u8;10] = [ 
+pub const NOP1: [u8;1] = [ 0x90 ];
+pub const NOP2: [u8;2] = [ 0x66, 0x90 ];
+pub const NOP3: [u8;3] = [ 0x0F, 0x1F, 0x00 ];
+pub const NOP4: [u8;4] = [ 0x0F, 0x1F, 0x40, 0x00 ];
+pub const NOP5: [u8;5] = [ 0x0F, 0x1F, 0x44, 0x00, 0x00 ];
+pub const NOP6: [u8;6] = [ 0x66, 0x0F, 0x1F, 0x44, 0x00, 0x00 ];
+pub const NOP7: [u8;7] = [ 0x0F, 0x1F, 0x80, 0x00, 0x00, 0x00, 0x00 ];
+pub const NOP8: [u8;8] = [ 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 ];
+pub const NOP9: [u8;9] = [ 0x66, 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 ];
+pub const NOP10: [u8;10] = [ 
     0x66, 0x66, 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 
 ];
-const NOP11: [u8;11] = [ 
+pub const NOP11: [u8;11] = [ 
     0x66, 0x66, 0x66, 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 
 ];
-const NOP12: [u8;12] = [ 
+pub const NOP12: [u8;12] = [ 
     0x66, 0x66, 0x66, 0x66, 0x0F, 0x1F, 0x84, 
     0x00, 0x00, 0x00, 0x00, 0x00 
 ];
-const NOP13: [u8;13] = [ 
+pub const NOP13: [u8;13] = [ 
     0x66, 0x66, 0x66, 0x66, 0x66, 0x0F, 0x1F, 0x84, 
     0x00, 0x00, 0x00, 0x00, 0x00 
 ];
-const NOP14: [u8;14] = [ 
+pub const NOP14: [u8;14] = [ 
     0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x0F, 0x1F, 0x84, 
     0x00, 0x00, 0x00, 0x00, 0x00
 ];
-const NOP15: [u8;15] = [ 
+pub const NOP15: [u8;15] = [ 
     0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x0F, 0x1F, 0x84, 
     0x00, 0x00, 0x00, 0x00, 0x00
 ];
@@ -87,6 +87,8 @@ pub struct TestParameters {
     pub buf: ExecutableBuffer,
     /// Offset to a single "target" instruction within the buffer.
     pub tgt_instr_off: usize,
+    /// Offset to the end of measured code
+    pub tgt_instr_end: usize, 
 }
 impl TestParameters {
     /// Create the appropriate ioctl message for this test.
@@ -113,6 +115,7 @@ macro_rules! emit_test {
             ; ->loop_start:
 
             $($body)*
+            ; ->target_end:
 
             ; sub   rsi, 1
             ; jne   ->loop_start
@@ -121,13 +124,19 @@ macro_rules! emit_test {
             ; ret
         );
 
-        let offset = match asm.labels().resolve_global("target") {
+        let tgt_instr_off = match asm.labels().resolve_global("target") {
             Ok(offset) => offset.0,
             Err(e) => panic!("{:?}", e),
         };
 
+        let tgt_instr_end = match asm.labels().resolve_global("target_end") {
+            Ok(offset) => offset.0,
+            Err(e) => panic!("{:?}", e),
+        };
+
+
         let buf = asm.finalize().unwrap();
-        TestParameters { buf, tgt_instr_off: offset }
+        TestParameters { buf, tgt_instr_off, tgt_instr_end}
     } }
 }
 
@@ -172,6 +181,7 @@ macro_rules! emit_test_iters_rsi {
             ; ->loop_start:
 
             $($t)*
+            ; ->target_end:
 
             ; sub   rsi, 1
             ; jne   ->loop_start
@@ -179,13 +189,18 @@ macro_rules! emit_test_iters_rsi {
             ; ret
         );
 
-        let offset = match asm.labels().resolve_global("target") {
+        let tgt_instr_off = match asm.labels().resolve_global("target") {
+            Ok(offset) => offset.0,
+            Err(e) => panic!("{:?}", e),
+        };
+        let tgt_instr_end = match asm.labels().resolve_global("target_end") {
             Ok(offset) => offset.0,
             Err(e) => panic!("{:?}", e),
         };
 
+
         let buf = asm.finalize().unwrap();
-        TestParameters { buf, tgt_instr_off: offset }
+        TestParameters { buf, tgt_instr_off, tgt_instr_end }
     } }
 }
 

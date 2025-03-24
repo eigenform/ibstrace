@@ -5,7 +5,7 @@
 #include <linux/sched.h>
 
 // The target CPU used to execute and sample some code
-#define TARGET_CPU					0
+#define TARGET_CPU					15
 
 // The maximum capacity of the sample buffer (in number of samples)
 #define IBSTRACE_SAMPLE_CAPACITY	0x40000
@@ -32,6 +32,7 @@ struct sample {
 	__u64 op_data3;
 	__u64 dc_lin_addr;
 	__u64 dc_phys_addr;
+	__u64 tgt_rip;
 };
 
 #endif // _IBSTRACE_H

@@ -12,6 +12,9 @@ pub mod analysis;
 use std::hash::{Hash, Hasher};
 
 /// A sample taken by the `ibstrace` kernel module.
+///
+/// WARNING: This struct mirrors the original definition in C code, see 
+/// `ibstrace/ibstrace.h` in the source code for the `ibstrace` kernel module.
 #[derive(Clone, Default, Ord, PartialOrd)]
 #[repr(C)]
 pub struct Sample {
@@ -29,6 +32,8 @@ pub struct Sample {
     pub linad: usize, 
     /// Physical address for tagged memory accesses (IBS_DC_PHYSADDR).
     pub phyad: usize,
+    /// Sampled branch target address (BP_IBSTGT_RIP).
+    pub tgt_rip: usize,
 }
 impl PartialEq for Sample {
     fn eq(&self, other: &Self) -> bool {
@@ -37,7 +42,8 @@ impl PartialEq for Sample {
         self.data2 == other.data2 &&
         self.data3 == other.data3 && 
         self.linad == other.linad &&
-        self.phyad == other.phyad
+        self.phyad == other.phyad &&
+        self.tgt_rip == other.tgt_rip
     }
 }
 impl Eq for Sample {}
@@ -50,6 +56,7 @@ impl Hash for Sample {
         self.data3.hash(state);
         self.linad.hash(state);
         self.phyad.hash(state);
+        self.tgt_rip.hash(state);
     }
 }
 

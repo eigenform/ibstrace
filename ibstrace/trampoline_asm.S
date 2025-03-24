@@ -44,7 +44,7 @@ SYM_FUNC_START(__trampoline_start)
 	// as a purpose-built kernel where the path between IBS NMIs and measured 
 	// code is as short as possible).
 
-	mov		ecx, 0xc0011033
+	mov		ecx, 0xc0011033 // IBS_OP_CTL
 	rdmsr   
 	or		eax, 0x000a0100
 	wrmsr
@@ -69,7 +69,7 @@ SYM_FUNC_START(__trampoline_start)
 	// NMI, let the IBS_OP_MAX_CNT bits (zeroed out here) indicate that the
 	// last sample should be ignored.
 
-	mov		ecx, 0xc0011033
+	mov		ecx, 0xc0011033 // IBS_OP_CTL
 	mov		eax, 0x00040000
 	xor		edx, edx
 	wrmsr
@@ -83,7 +83,7 @@ SYM_FUNC_START(__trampoline_start)
 	call	__udelay
 
 	// Finally, zero out all the bits in IBS_OP_CTL.
-	mov		ecx, 0xc0011033
+	mov		ecx, 0xc0011033 // IBS_OP_CTL
 	xor		eax, eax
 	xor		edx, edx
 	wrmsr

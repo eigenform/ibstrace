@@ -33,6 +33,43 @@ impl MemoryAccess {
     }
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
+pub struct SampleInfo {
+    pub data:  ibs::IbsOpData, 
+    pub data2: ibs::IbsOpData2, 
+    pub data3: ibs::IbsOpData3, 
+    pub linad: usize, 
+    pub phyad: usize,
+    pub tgt_rip: usize,
+}
+impl SampleInfo {
+    pub fn from_sample(s: &Sample) -> Self { 
+        Self { 
+            data: s.data,
+            data2: s.data2,
+            data3: s.data3,
+            linad: s.linad,
+            phyad: s.phyad,
+            tgt_rip: s.tgt_rip,
+        }
+    }
+}
+impl std::fmt::Display for SampleInfo {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        write!(fmt, 
+            "[t2r={:05} c2r={:05} uc={} brn_ret={} brn_tkn={} brn_msp={} phy={:016x} tgt={:016x}",
+            self.data.tag_to_ret_ctr(),
+            self.data.comp_to_ret_ctr(),
+            self.data.op_microcode() as usize,
+            self.data.op_brn_ret() as usize,
+            self.data.op_brn_taken() as usize,
+            self.data.op_brn_misp() as usize,
+            self.phyad,
+            self.tgt_rip,
+        )
+    }
+}
+
 
 /// The results of a particular test.
 pub struct TestResult {
@@ -58,9 +95,9 @@ pub fn filter_by_rip(samples: &[Sample], tgt_rip: usize)
 
 pub fn print_sample(s: &Sample) {
     //println!("[*] IbsOpCtl:  {:016x}", s.ctl.0);
-    println!("[*] IbsOpRip:  {:016x} (valid={})", 
+    println!("[*] IbsOpRip:   {:016x} (valid={})", 
              s.rip, !s.data.rip_invalid());
-    println!("[*] IbsOpData: {:016x}", s.data.0);
+    println!("[*] IbsOpData:  {:016x}", s.data.0);
     //println!("  reserved bits (hi):         {:x}", s.data.res_hi());
     //println!("  reserved bits (lo):         {:x}", s.data.res_lo());
     println!("  tag-to-retire count:        {}", s.data.tag_to_ret_ctr());
@@ -71,7 +108,9 @@ pub fn print_sample(s: &Sample) {
     if s.data.op_brn_ret() {   println!("  retired branch"); }
     if s.data.op_brn_misp() {  println!("  mispredicted branch"); }
     if s.data.op_brn_taken() { println!("  taken branch"); }
-    if s.data.op_brn_ret() {   println!("  return op"); }
+    if s.data.op_return() {    println!("  return op"); }
+    if s.data.res_33() {       println!("  reserved bit 33?"); }
+    if s.data.res_32() {       println!("  reserved bit 32?"); }
 
     println!("[*] IbsOpData2: {:016x}", s.data2.0);
     if s.data2.data_src() != NbDataSrc::Invalid {
@@ -113,6 +152,12 @@ pub fn print_sample(s: &Sample) {
             println!("  Write-combining access");
         }
     }
+
+    if s.tgt_rip != 0 {
+    //if s.data.op_brn_ret() {
+        println!("[*] IbsTgtRip:  {:016x}", s.tgt_rip);  
+    }
+
     println!("");
 }
 

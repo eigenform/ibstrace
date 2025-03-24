@@ -3,6 +3,7 @@
 #include <linux/smp.h>
 #include <linux/delay.h>
 #include <asm/msr.h>
+#include <linux/mutex.h>
 
 #include <ibstrace.h>
 #include "state.h"
