@@ -256,6 +256,7 @@ pub enum IbsMemWidth {
     Dword   = 32,
     Qword   = 64,
     Oword   = 128,
+    Yword   = 256,
 }
 impl From<usize> for IbsMemWidth {
     fn from(x: usize) -> Self {
@@ -266,6 +267,7 @@ impl From<usize> for IbsMemWidth {
             0x3 => IbsMemWidth::Dword,
             0x4 => IbsMemWidth::Qword,
             0x5 => IbsMemWidth::Oword,
+            0x6 => IbsMemWidth::Yword,
             _ => panic!("Invalid/unsupported access width value {}", x),
         }
     }

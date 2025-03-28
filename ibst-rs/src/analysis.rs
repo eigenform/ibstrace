@@ -6,16 +6,18 @@ use std::collections::{ BTreeSet, BTreeMap };
 use dynasmrt::{ AssemblyOffset, ExecutableBuffer };
 
 /// Some type of memory access (either a load, or a store).
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum MemoryAccessKind { LD, ST }
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum MemoryAccessKind { LD, ST, LDST }
 
 /// A record of a sampled memory access.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MemoryAccess {
     /// The physical address tagged for this access.
     pub phys: usize,
+
     /// The width of this access in bytes.
     pub width: usize,
+
     /// The kind of access (load or store).
     pub kind: MemoryAccessKind,
 }
@@ -25,6 +27,7 @@ impl MemoryAccess {
         let kind = match (sample.data3.st_op(), sample.data3.ld_op()) {
             (true, false) => MemoryAccessKind::ST,
             (false, true) => MemoryAccessKind::LD,
+            (true, true) => MemoryAccessKind::LDST,
             (_, _) => return None,
         };
         let phys = sample.phyad;
@@ -243,6 +246,7 @@ pub fn get_uniq_accesses(samples: &[Sample], tgt_rip: usize)
         let kind = match (sample.data3.st_op(), sample.data3.ld_op()) {
             (true, false) => MemoryAccessKind::ST,
             (false, true) => MemoryAccessKind::LD,
+            (true, true) => MemoryAccessKind::LDST,
             (_, _) => continue,
         };
         let phys = sample.phyad;

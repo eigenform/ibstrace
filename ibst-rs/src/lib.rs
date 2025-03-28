@@ -8,6 +8,7 @@ pub mod codegen;
 pub mod util;
 pub mod ioctl;
 pub mod analysis;
+pub mod msr; 
 
 use std::hash::{Hash, Hasher};
 

@@ -13,6 +13,9 @@ yaxpeax-x86 = "1.0.3"
 iced-x86 = "1.15.0"
 rand = "0.8.4"
 rand_xorshift = "0.3.0"
+num_enum = "0.7.3"
+itertools = "0.14.0"
+clap = { version = "4.5.34", features = ["derive"] }
 
 [[bin]]
 name = "ibst-msr"
