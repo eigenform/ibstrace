@@ -13,10 +13,12 @@ use clap::Parser;
 /// ========
 ///
 /// Use the 'ibstrace' kernel module to analyze the memory accesses produced 
-/// by 'rdmsr' for different MSRs. 
+/// by 'rdmsr' for different MSR numbers.
 ///
-/// WARNING: 'ibstrace' does not validate input to 'rdmsr' and does not 
-/// gracefully handle any exceptions/faults produced by 'rdmsr'. 
+/// WARNING: 'ibstrace' and this tool do *not* validate input to 'rdmsr' and 
+/// do not gracefully handle any exceptions/faults produced by 'rdmsr'. 
+/// If you specify an MSR that causes an exception/fault, you will probably
+/// crash hard in the kernel. 
 ///
 #[derive(Parser)]
 #[command(verbatim_doc_comment)]
@@ -28,38 +30,38 @@ struct Args {
     /// Add one or more MSRs to test, ie. '--msr=c0000080,000000e7,
     #[arg(long,value_delimiter=',',num_args=1..,)]
     msr: Option<Vec<String>>,
-
 }
 
-/// Test a single MSR read, returning a list of unique memory accesses.
+/// Test a single MSR read, returning a list of IBS samples. 
 fn sample_msr(fd: i32, msr: u32, iters: usize) -> TestResult {
     run_test(fd, ibst::codegen::emit_msr_test(msr, iters))
 }
 
-/// Test a list of MSRs, returning a map from ECX values to lists of unique 
-/// memory accesses.
+/// Test a list of MSRs, returning a map from ECX values to sets of IBS samples.
 fn sample_msr_set(fd: i32, msr_list: &[u32]) -> BTreeMap<u32, TestResult> {
     let mut map = BTreeMap::new();
     for msr in msr_list.iter() {
         eprintln!("sampling {:08x}", msr);
-        let samples = sample_msr(fd, *msr, 0x8_0000);
+        let samples = sample_msr(fd, *msr, 0x1_0000);
         map.insert(*msr, samples);
     }
     map
 }
 
-pub fn print_results(map: &BTreeMap<u32, TestResult>, buf: usize)
+/// Print results to stdout
+fn print_results(map: &BTreeMap<u32, TestResult>, buf: usize)
 {
     let num_msrs = map.len();
 
-    // Associate each MSR to the set of observed memory accesses
+    // Associate each MSR to a set of observed memory accesses. 
     let mut per_msr_accs: BTreeMap<u32, BTreeSet<MemoryAccess>> = BTreeMap::new();
     for (msr, test) in map {
         let tgt_rip = buf + test.params.tgt_instr_off;
-        per_msr_accs.insert(*msr, get_uniq_accesses(&test.result, tgt_rip));
+        let uniq_accesses = get_uniq_accesses(&test.result, tgt_rip);
+        per_msr_accs.insert(*msr, uniq_accesses);
     }
 
-    // Associate each access to a set of MSRs 
+    // Associate each access to the set of MSRs where it was observed.
     let mut accs_by_msr: BTreeMap<MemoryAccess, BTreeSet<u32>> = BTreeMap::new();
     for (msr, accs) in &per_msr_accs {
         for acc in accs.iter() { 
@@ -73,12 +75,12 @@ pub fn print_results(map: &BTreeMap<u32, TestResult>, buf: usize)
         }
     }
 
-    // Set of accesses that are unique to a particular MSR
+    // Find all accesses that are only observed for a single MSR. 
     let uniq_accs = accs_by_msr.iter().filter(|(acc, msrs)| { 
         msrs.len() == 1 
     });
 
-    // Set of accesses that occurred for all MSRs
+    // Find all accesses that are observed for all MSRs.
     let common_accs = accs_by_msr.iter().filter(|(acc, msrs)| { 
         msrs.len() == num_msrs
     });
@@ -94,52 +96,7 @@ pub fn print_results(map: &BTreeMap<u32, TestResult>, buf: usize)
         println!("  {:016x} {:02x} {:4?} => {:08x} ({})",  
             acc.phys, acc.width, acc.kind, msr_num, msr_name
         );
-
     }
-
-
-    //let mut unique_accs = BTreeMap::new();
-    //let mut common_accs = BTreeSet::new();
-
-    //for (msr, accs) in &per_msr_accs {
-    //    let mut uniq = Vec::new();
-    //    for acc in accs.iter() {
-    //        if per_msr_accs.iter().all(|(_, a)| { a.contains(acc) }) {
-    //            common_accs.insert(acc);
-    //        }
-    //        if !per_msr_accs.iter()
-    //            .filter(|(k, _)| { msr != *k })
-    //            .any(|(_, a)| { a.contains(acc) }) 
-    //        {
-    //            uniq.push(acc);
-    //        }
-    //    }
-    //    if !uniq.is_empty() {
-    //        unique_accs.insert(msr, uniq);
-    //    }
-    //}
-
-    //println!("Common accesses (among all keys):");
-    //for acc in common_accs.iter() {
-    //    println!("{:016x} {:02} {:?}", acc.phys, acc.width, acc.kind);
-    //}
-    //println!("");
-
-    //for (msr, accs) in unique_accs {
-    //    println!("Unique accesses for MSR {:08x?}:", msr);
-    //    for acc in accs.iter() {
-    //        println!("  {:016x} {:02} {:?}", acc.phys, acc.width, acc.kind);
-    //    }
-    //    println!("");
-    //}
-
-    //for (msr, accs) in &per_msr_accs {
-    //    println!("All accesses for MSR {:08x?}", msr);
-    //    for acc in accs.iter() {
-    //        println!("  {:016x} {:02} {:?}", acc.phys, acc.width, acc.kind);
-    //    }
-    //    println!("");
-    //}
 }
 
 
@@ -149,6 +106,7 @@ fn main() -> Result<(), &'static str> {
 
     let mut msr_set: BTreeSet<u32> = BTreeSet::new();
 
+    // Append MSRs from the '--list-file' argument
     if let Some(filename) = arg.list_file {
         println!("[*] Appending MSRs from file '{}'", filename);
         let f = std::fs::File::open(filename).expect("Couldn't open file");
@@ -161,6 +119,7 @@ fn main() -> Result<(), &'static str> {
         }
     }
 
+    // Append MSRs from the '--msr=' argument
     if let Some(list) = arg.msr {
         println!("{:?}", list);
         for x in list { 
@@ -170,12 +129,15 @@ fn main() -> Result<(), &'static str> {
         }
     }
 
+
+    let base_addr = ibst::get_base_address()
+        .expect("Couldn't read base address from 'ibstrace'; is the module loaded?");
+    let fd = ibst::ibstrace_open()
+        .expect("Couldn't open 'ibstrace' device"); 
+
     let msr_list: Vec<u32> = msr_set.iter().map(|e| *e).collect();
-
-    let base_addr = ibst::get_base_address()?;
-    let fd = ibst::ibstrace_open()?;
-
     let per_msr_samples = sample_msr_set(fd, &msr_list);
+
     print_results(&per_msr_samples, base_addr);
 
     ibst::ibstrace_close(fd);
