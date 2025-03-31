@@ -3,11 +3,14 @@
 code with AMD IBS. `ibst-rs` is a library that you can use to interact
 with the kernel module and parse samples.
 
-I've written this specifically for the Ryzen 7 3950X in my desktop machine, 
-for learning about/experimenting with the Zen 2 microarchitecture. You should 
-probably know that:
+For reference, I've tested/used this code on the following parts: 
 
-- **It's dangerous** (no compatibility outside of AMD Family 17h, Model 71h)
+- Ryzen 7 3950X ("Matisse", Zen 2)
+- Ryzen 5 PRO 5650GE ("Cezanne", Zen 3)
+
+Before using this, you should probably know that:
+
+- **It's dangerous** (no guarantees that this actually works correctly)
 - **It's dangerous** (lets you execute arbitrary code in the kernel)
 - **It's dangerous** (mostly unsafe by design, probably has bugs too)
 

@@ -32,6 +32,6 @@ elif [[ ${1} == "disable" ]]; then
 	echo 1 > ${NMI_CTRL}
 	echo 'schedutil' > ${GOV_CTRL}
 else
-	echo "usage: $0 [off|on]"
+	echo "usage: $0 [enable|disable]"
 	exit -1
 fi
