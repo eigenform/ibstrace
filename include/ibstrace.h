@@ -5,7 +5,8 @@
 #include <linux/sched.h>
 
 // The target CPU used to execute and sample some code
-#define TARGET_CPU					15
+// NOTE: We expect this to be defined compile-time with -DTARGET_CPU=
+//#define TARGET_CPU					15
 
 // The maximum capacity of the sample buffer (in number of samples)
 #define IBSTRACE_SAMPLE_CAPACITY	0x40000

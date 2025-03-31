@@ -2,14 +2,23 @@
 all: options
 
 options: 
-	@echo "Try invoking make with one of the following options:"
-	@echo " 	make prod - Build kernel module with Zen2-specific features"
-	@echo " 	make qemu - Build kernel module for testing w/ QEMU"
+	@echo "Try invoking make with one of the following options (where 'N' is the target core number):"
+	@echo " 	make prod CORE=N - Build kernel module with Zen2-specific features"
+	@echo " 	make qemu CORE=N - Build kernel module for testing w/ QEMU"
 
 prod:
-	@echo "# Building ibstrace kernel module ..."
-	$(MAKE) -C ibstrace/ prod
+ifndef CORE
+	$(error Must define target core, ie. 'make prod CORE=15')
+endif
+	@echo "# Building ibstrace kernel module ... "
+	$(MAKE) -C ibstrace/ prod CORE=$(CORE)
+
 qemu:
-	$(MAKE) -C ibstrace/ qemu
+ifndef CORE
+	$(error Must define target core, ie. 'make qemu CORE=15')
+endif
+	@echo "# Building ibstrace kernel module ... "
+	$(MAKE) -C ibstrace/ qemu CORE=$(CORE)
+
 clean:
 	$(MAKE) -C ibstrace/ clean
