@@ -2,6 +2,7 @@
 //! AMD IBS micro-op samples.
 
 #![feature(trait_alias)]
+#![feature(pointer_is_aligned_to)]
 
 pub mod ibs;
 pub mod codegen;
@@ -61,10 +62,35 @@ impl Hash for Sample {
     }
 }
 
+impl std::fmt::Debug for Sample {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        fmt.debug_struct("Sample")
+            .field("rip", &self.rip)
+            .field("ld", &self.data3.ld_op())
+            .field("st", &self.data3.st_op())
+            .field("ucode", &self.data.op_microcode())
+            .field("tag_to_retire", &self.data.tag_to_ret_ctr())
+            .field("complete_to_retire", &self.data.comp_to_ret_ctr())
+            .field("data_res_33", &self.data.res_33())
+            .field("data_res_32", &self.data.res_32())
+            .field("lin", &self.linad)
+            .field("phy", &self.phyad)
+            .field("width", &self.data3.op_mem_width())
+            .finish()
+    }
+}
+
+
 nix::ioctl_write_ptr_bad! {
     /// Submit code-to-be-measured to the kernel module. 
     /// Takes a pointer to a [UserBuf] describing the input buffer.
     ibstrace_write, ioctl::CMD_WRITE, ioctl::UserBuf
+}
+
+nix::ioctl_write_ptr_bad! {
+    /// Execute submitted user code in the "precise" environment. 
+    /// Takes a pointer to a [PreciseArgs] describing the arguments.
+    ibstrace_precise, ioctl::CMD_PRECISE, ioctl::PreciseArgs
 }
 
 nix::ioctl_none_bad! {
@@ -88,17 +114,13 @@ pub fn ibstrace_open() -> Result<i32, &'static str> {
     use nix::sys::stat::Mode;
     use nix::fcntl::{ open, OFlag };
     use nix::errno::Errno;
-    use nix::Error;
 
     match open(ioctl::IBSTRACE_CHARDEV, OFlag::O_RDWR, Mode::S_IRWXU) {
         Ok(fd) => Ok(fd),
         Err(e) => match e {
-            Error::Sys(eno) => match eno {
-                Errno::ENOENT => Err("Kernel module not loaded?"),
-                Errno::EACCES => Err("Permission denied - are you root?"),
-                _ => panic!("{}", eno),
-            },
-            _ => panic!("unhandled error {}", e),
+            Errno::ENOENT => Err("Kernel module not loaded?"),
+            Errno::EACCES => Err("Permission denied - are you root?"),
+            _ => panic!("{}", e),
         }
     }
 }
@@ -147,7 +169,7 @@ pub fn get_base_address() -> Result<usize, &'static str> {
             let x = s[2..].strip_suffix("\n").unwrap();
             Ok(usize::from_str_radix(x, 16).unwrap())
         }
-        Err(e) => panic!("{}", e),
+        Err(e) => panic!("Couldn't read ibstrace base address? - {}", e),
     }
 }
 
@@ -163,6 +185,35 @@ pub fn measure(fd: i32, msg: &ioctl::UserBuf) -> Box<[Sample]> {
         match ibstrace_measure(fd) { 
             Ok(res) => if res < 0 { 
                 panic!("measure failed with {}", res);
+            },
+            Err(e) => panic!("{}", e),
+        }
+        let data = match ibstrace_read(fd) {
+            Ok(buf) => buf,
+            Err(e) => panic!("{}", e),
+        };
+
+        std::slice::from_raw_parts(
+            data.as_ptr() as *mut Sample,
+            data.len() / std::mem::size_of::<Sample>()
+        ).to_owned().into_boxed_slice()
+    }
+}
+
+/// Execute and sample some code, returning a [Box] of [Sample] data.
+pub fn measure_precise(fd: i32, msg: &ioctl::UserBuf, arg: &ioctl::PreciseArgs) 
+    -> Box<[Sample]> 
+{
+    unsafe { 
+        match ibstrace_write(fd, msg as *const ioctl::UserBuf) {
+            Ok(res) => if res < 0 { 
+                panic!("write failed with {}", res);
+            },
+            Err(e) => panic!("{}", e),
+        }
+        match ibstrace_precise(fd, arg as *const ioctl::PreciseArgs) {
+            Ok(res) => if res < 0 { 
+                panic!("precise measurement failed with {}", res);
             },
             Err(e) => panic!("{}", e),
         }

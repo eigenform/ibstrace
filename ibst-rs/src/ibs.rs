@@ -84,6 +84,21 @@ impl IbsOpData {
     }
 }
 
+impl std::fmt::Debug for IbsOpData {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        fmt.debug_struct("IbsOpData")
+            .field("ucode", &self.op_microcode())
+            .field("fused_brn", &self.op_brn_fuse())
+            .field("op_brn_ret", &self.op_brn_ret())
+            .field("tag_to_retire", &self.tag_to_ret_ctr())
+            .field("complete_to_retire", &self.comp_to_ret_ctr())
+            .field("res_33", &self.res_33())
+            .field("res_32", &self.res_32())
+            .finish()
+    }
+}
+
+
 #[derive(Clone, Copy, Eq, PartialEq, Debug, Hash)]
 pub enum NbDataSrc {
     Invalid,

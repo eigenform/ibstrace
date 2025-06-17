@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 
 #include <linux/linkage.h>
-#incldue <asm/delay.h>
 
 .intel_syntax noprefix
 
@@ -74,14 +73,13 @@ SYM_FUNC_START(__trampoline_start)
 	xor		edx, edx
 	wrmsr
 
-	// Wait in a busy loop for a hanging NMI to be dispatched and handled.
-	// You'll know this doesn't work if dmesg tells you about unexpected NMIs.
-	// We probably don't *need* to call __udelay() here (you could just write
-	// the loop in here), but whatever.
-
-	mov		rdi, 0x1
-	call	__udelay
-
+	// Waste some time while we wait for the NMI to be handled 
+	mov		rdi, 0x1000
+.Lloop:
+	dec		rdi
+	cmp		rdi, 0
+	jne		.Lloop
+	
 	// Finally, zero out all the bits in IBS_OP_CTL.
 	mov		ecx, 0xc0011033 // IBS_OP_CTL
 	xor		eax, eax

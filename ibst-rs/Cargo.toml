@@ -6,7 +6,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nix = "0.21.0"
+nix = { version = "0.29.0", features = ["uio", "sched", "mman", "fs", "feature", "ioctl" ] }
 dynasmrt = "1.0.1"
 yaxpeax-arch = "0.2.4"
 yaxpeax-x86 = "1.0.3"
@@ -17,14 +17,3 @@ num_enum = "0.7.3"
 itertools = "0.14.0"
 clap = { version = "4.5.34", features = ["derive"] }
 
-[[bin]]
-name = "ibst-msr"
-path = "bin/ibst-msr.rs"
-
-[[bin]]
-name = "ibst-cpuid"
-path = "bin/ibst-cpuid.rs"
-
-[[bin]]
-name = "ibst-single"
-path = "bin/ibst-single.rs"

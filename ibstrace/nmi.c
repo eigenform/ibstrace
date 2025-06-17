@@ -42,24 +42,36 @@ static void read_sample_data(struct sample *sample, struct pt_regs *regs)
 int ibs_nmi_handler(unsigned int cmd, struct pt_regs *regs)
 {
 	u64 ibs_op_ctl;
+	u64 ibs_op_rip;
 	long sample_idx;
 	struct sample *this_sample;
 	rdmsrl(IBS_OP_CTL, ibs_op_ctl);
 
+	rdmsrl(IBS_OP_RIP, ibs_op_rip);
+
 	// If the sample valid bit is set, this is an IBS NMI
 	if (ibs_op_ctl & IBS_OP_VAL) {
-
-		// If IBS_OP_MAX_CNT is zeroed out, this is a hanging NMI 
-		// that occured after clearing the IBS_OP_EN bit
-		if (!(ibs_op_ctl & IBS_OP_MAX_CNT)) {
-			return NMI_HANDLED; 
-		}
 
 		// If we don't have any more space to store samples, just return
 		sample_idx = atomic_long_read(&state.samples_collected);
 		if (sample_idx >= state.sample_buf_capacity) {
 			return NMI_HANDLED;
 		}
+
+		//// Hanging NMI, I guess
+		//if (ibs_op_ctl == 0) { 
+		//	return NMI_HANDLED; 
+		//}
+
+		// If IBS_OP_MAX_CNT is zeroed out, this is a hanging NMI 
+		// that occured after clearing the IBS_OP_EN bit
+		//if (!(ibs_op_ctl & IBS_OP_MAX_CNT)) {
+		//	return NMI_HANDLED; 
+		//}
+
+		//if (ibs_op_rip == 0) {
+		//	return NMI_HANDLED;
+		//}
 
 		// Collect the sample
 		this_sample = &state.sample_buf[sample_idx];
@@ -71,6 +83,7 @@ int ibs_nmi_handler(unsigned int cmd, struct pt_regs *regs)
 		// Reconfiguring the current counter shouldn't be necessary?
 	
 		ibs_op_ctl &= ~IBS_OP_VAL;
+		ibs_op_ctl = 0;
 		wrmsrl(IBS_OP_CTL, ibs_op_ctl);
 
 		return NMI_HANDLED;

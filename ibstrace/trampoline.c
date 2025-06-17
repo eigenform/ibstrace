@@ -11,29 +11,12 @@
 
 extern struct ibstrace_state state;
 
-//int __trampoline_start(void *code_ptr, unsigned long paddr);
 int __trampoline_start(void *code_ptr, void *scratch_page_vaddr);
-
-// Enable SVM by setting the bit in EFER.
-int enable_svm(void) 
-{
-	u64 efer;
-	rdmsrl(MSR_EFER, efer);
-	wrmsrl(MSR_EFER, efer | EFER_SVME);
-	rdmsrl(MSR_EFER, efer);
-	if ((efer & EFER_SVME) == 0) {
-		return -1;
-	}
-	return 0;
-}
-
-// Disable SVM.
-void disable_svm(void)
-{
-	u64 efer;
-	rdmsrl(MSR_EFER, efer);
-	wrmsrl(MSR_EFER, efer & ~EFER_SVME);
-}
+int __precise_trampoline_start(
+	void *code_ptr, 
+	void *scratch_page_vaddr,
+	__u64 offset
+);
 
 // Cursed hack #3: 
 // Trampoline into user-submitted code. This function is guaranteed to execute 
@@ -44,6 +27,24 @@ void trampoline(void *info)
 	int res = -1;
 
 	res = __trampoline_start(state.code_buf, state.scratch_page);
+
+	// This lock is aquired in ibstrace_ioctl() just before we use
+	// smp_call_function_single_async() to call this function.
+
+	mutex_unlock(&state.in_use);
+}
+
+void precise_trampoline(void *info)
+{
+	int res = -1;
+
+	struct ibstrace_precise_msg *arg = (struct ibstrace_precise_msg*)info;
+
+	res = __precise_trampoline_start(
+			state.code_buf, 
+			arg->ptr,
+			arg->offset
+	);
 
 	// This lock is aquired in ibstrace_ioctl() just before we use
 	// smp_call_function_single_async() to call this function.

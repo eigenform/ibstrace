@@ -5,6 +5,7 @@ pub const CMD_WRITE:    usize = 0x0000_1000;
 pub const CMD_MEASURE:  usize = 0x0000_2000;
 pub const CMD_SAMPLES:  usize = 0x0000_4000;
 pub const CMD_CAPACITY: usize = 0x0000_8000;
+pub const CMD_PRECISE:  usize = 0x0002_0000;
 
 #[repr(C)]
 pub struct UserBuf { 
@@ -15,7 +16,20 @@ pub struct UserBuf {
 }
 impl UserBuf {
     pub fn new(ptr: *const u8, len: usize) -> Self {
-        UserBuf { ptr, len }
+        Self { ptr, len }
+    }
+}
+
+#[repr(C)]
+pub struct PreciseArgs { 
+    // Pointer to buffer with user code
+    ptr: *const u8, 
+    // Offset
+    offset: usize,
+}
+impl PreciseArgs {
+    pub fn new(ptr: *const u8, offset: usize) -> Self {
+        Self { ptr, offset }
     }
 }
 

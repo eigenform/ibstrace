@@ -89,6 +89,20 @@ pub fn run_test(fd: i32, params: TestParameters) -> TestResult {
     TestResult { params, result }
 }
 
+pub fn run_precise_test(
+    fd: i32, 
+    params: &TestParameters,
+    arg: ioctl::PreciseArgs,
+) 
+    -> Box<[Sample]>
+{
+    let msg = params.to_userbuf();
+    let result = crate::measure_precise(fd, &msg, &arg);
+    result
+}
+
+
+
 
 pub fn filter_by_rip(samples: &[Sample], tgt_rip: usize) 
     -> impl Iterator<Item = &Sample> 

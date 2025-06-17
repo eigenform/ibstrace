@@ -19,11 +19,19 @@
 #define IBSTRACE_CMD_SAMPLES		0x00004000
 // ioctl() command: return the maximum sample buffer capacity
 #define IBSTRACE_CMD_CAPACITY		0x00008000
+// ioctl() command: execute and sample a particular op
+#define IBSTRACE_CMD_PRECISE		0x00020000
 
 struct ibstrace_msg {
 	void *ptr;
 	__u64 len;
 };
+
+struct ibstrace_precise_msg {
+	void *ptr;
+	__u64 offset;
+};
+
 
 struct sample {
 	__u64 op_ctl;

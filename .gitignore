@@ -10,3 +10,4 @@
 *.elf
 ibst-rs/target
 data/
+tmp/

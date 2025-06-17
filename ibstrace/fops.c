@@ -7,13 +7,23 @@
 #include "fops.h"
 
 struct ibstrace_msg tmp;
+struct ibstrace_msg precise_tmp;
+
 extern void trampoline(void *info);
+extern void precise_trampoline(void *info);
+
 extern struct ibstrace_state state;
 
 static call_single_data_t trampoline_csd = {
 	.func = trampoline,
 	.info = NULL,
 };
+
+static call_single_data_t precise_trampoline_csd = {
+	.func = precise_trampoline,
+	.info = (void*)&precise_tmp,
+};
+
 
 ssize_t ibstrace_read(struct file *file, char __user *buf, size_t count,
 		loff_t *fpos)
@@ -86,6 +96,23 @@ long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 		// Wait around until the trampoline returns and the target core
 		// releases the lock. There's probably a better way to do this ...
+		mutex_lock(&state.in_use);
+		mutex_unlock(&state.in_use);
+		break;
+
+	case IBSTRACE_CMD_PRECISE:
+		mutex_lock(&state.in_use);
+
+		res = copy_from_user(&precise_tmp, (struct ibstrace_precise_msg *)arg, 
+				sizeof(struct ibstrace_precise_msg));
+		if (res != 0) {
+			pr_info("ibstrace: invalid IBSTRACE_CMD_PRECISE message?\n");
+			res = -EINVAL;
+			break;
+		}
+
+		smp_call_function_single_async(TARGET_CPU, &precise_trampoline_csd);
+
 		mutex_lock(&state.in_use);
 		mutex_unlock(&state.in_use);
 		break;
