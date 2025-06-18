@@ -8,15 +8,6 @@
 
 extern struct ibstrace_state state;
 
-//static u64 lsfr4(void)
-//{
-//	static u64 tmp = 0xdead;
-//	u64 bit;
-//	bit = ((tmp >> 0) ^ (tmp >> 2) ^ (tmp >> 3) ^ (tmp >> 5)) & 1;
-//	tmp = (tmp >> 1) | (bit << 15);
-//	return tmp & 0xf;
-//}
-
 // Read the IBS data registers, then clear them.
 static void read_sample_data(struct sample *sample, struct pt_regs *regs)
 {
@@ -44,12 +35,13 @@ int ibs_nmi_handler(unsigned int cmd, struct pt_regs *regs)
 	u64 ibs_op_ctl;
 	u64 ibs_op_rip;
 	long sample_idx;
+	long precise_mode;
 	struct sample *this_sample;
 	rdmsrl(IBS_OP_CTL, ibs_op_ctl);
 
 	rdmsrl(IBS_OP_RIP, ibs_op_rip);
 
-	// If the sample valid bit is set, this is an IBS NMI
+	// If the valid bit is set, this is [probably] an IBS NMI
 	if (ibs_op_ctl & IBS_OP_VAL) {
 
 		// If we don't have any more space to store samples, just return
@@ -57,6 +49,9 @@ int ibs_nmi_handler(unsigned int cmd, struct pt_regs *regs)
 		if (sample_idx >= state.sample_buf_capacity) {
 			return NMI_HANDLED;
 		}
+
+		// Are we handling "normal" or "precise" sampling?
+		precise_mode = atomic_long_read(&state.precise_mode);
 
 		//// Hanging NMI, I guess
 		//if (ibs_op_ctl == 0) { 
@@ -78,12 +73,16 @@ int ibs_nmi_handler(unsigned int cmd, struct pt_regs *regs)
 		read_sample_data(this_sample, regs);
 		atomic_long_inc(&state.samples_collected);
 
-		// Reconfigure IBS_OP_CTL so we can handle another sample.
-		// NOTE: I think we only need to clear the sample-valid bit here.
-		// Reconfiguring the current counter shouldn't be necessary?
-	
-		ibs_op_ctl &= ~IBS_OP_VAL;
-		ibs_op_ctl = 0;
+		// For "normal" sampling, reconfigure IBS_OP_CTL so we can handle 
+		// another sample (presumably we just clear the valid bit). 
+		// Otherwise, for "precise sampling" (yielding a single sample), 
+		// simply clear IBS_OP_CTL. 
+		if (precise_mode == 0) {
+			ibs_op_ctl &= ~IBS_OP_VAL;
+		} else {
+			ibs_op_ctl = 0;
+		}
+
 		wrmsrl(IBS_OP_CTL, ibs_op_ctl);
 
 		return NMI_HANDLED;

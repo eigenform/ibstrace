@@ -32,6 +32,7 @@ struct ibstrace_state state = {
 	.sample_buf_capacity = IBSTRACE_SAMPLE_CAPACITY,
 	.sample_buf_len = sizeof(struct sample) * IBSTRACE_SAMPLE_CAPACITY,
 	.samples_collected = ATOMIC_INIT(0),
+	.precise_mode = ATOMIC_INIT(0),
 	.__scratch_page = NULL,
 	.scratch_page = NULL,
 	.scratch_page_paddr = 0,

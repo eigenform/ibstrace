@@ -13,6 +13,8 @@ struct ibstrace_state {
 	// The number of samples copied into the buffer
 	atomic_long_t samples_collected;
 
+	atomic_long_t precise_mode;
+
 	// Pointer to buffer of samples
 	struct sample *sample_buf;
 	// Maximum number of samples 

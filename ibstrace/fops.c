@@ -25,6 +25,8 @@ static call_single_data_t precise_trampoline_csd = {
 };
 
 
+// Read handler. 
+// Consumes the sample buffer, copying all samples to userspace.
 ssize_t ibstrace_read(struct file *file, char __user *buf, size_t count,
 		loff_t *fpos)
 {
@@ -59,6 +61,7 @@ out:
 	return res;
 }
 
+// ioctl() handler. 
 long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	long int res = 0;
@@ -68,30 +71,35 @@ long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case IBSTRACE_CMD_WRITE:
 		mutex_lock(&state.in_use);
 
-		// NOTE: Does copy_from_user() validate this pointer?
 		res = copy_from_user(&tmp, (struct ibstrace_msg *)arg, 
 				sizeof(struct ibstrace_msg));
 
 		if (res != 0) {
 			res = -EINVAL;
+			pr_info("ibstrace: invalid IBSTRACE_CMD_WRITE message?\n");
 			break;
 		}
+
 		if ((tmp.len > CODE_BUFFER_MAX_SIZE) || (tmp.len == 0)) {
+			pr_info("ibstrace: invalid buffer for user code?\n");
 			res = -EINVAL;
 			break;
 		}
 
 		res = copy_from_user(state.code_buf, tmp.ptr, tmp.len);
 		if (res != 0) {
+			pr_info("ibstrace: error uploading user code?\n");
 			res = -EINVAL;
 			break;
 		}
+
 		state.code_buf_len = tmp.len;
 		mutex_unlock(&state.in_use);
 		break;
 
 	case IBSTRACE_CMD_MEASURE:
 		mutex_lock(&state.in_use);
+		atomic_long_xchg(&state.precise_mode, 0);
 		smp_call_function_single_async(TARGET_CPU, &trampoline_csd);
 
 		// Wait around until the trampoline returns and the target core
@@ -102,6 +110,7 @@ long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 	case IBSTRACE_CMD_PRECISE:
 		mutex_lock(&state.in_use);
+		atomic_long_xchg(&state.precise_mode, 1);
 
 		res = copy_from_user(&precise_tmp, (struct ibstrace_precise_msg *)arg, 
 				sizeof(struct ibstrace_precise_msg));
