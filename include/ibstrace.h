@@ -22,6 +22,8 @@
 // ioctl() command: execute and sample a particular op in user code
 #define IBSTRACE_CMD_PRECISE		0x00020000
 
+#define MAX_OFFSET                  0x00100000
+
 // Arguments passed to IBSTRACE_CMD_WRITE 
 struct ibstrace_msg {
 	// Pointer to a buffer with user code to-be-uploaded

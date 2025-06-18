@@ -7,7 +7,7 @@
 #include "fops.h"
 
 struct ibstrace_msg tmp;
-struct ibstrace_msg precise_tmp;
+struct ibstrace_precise_msg precise_tmp;
 
 extern void trampoline(void *info);
 extern void precise_trampoline(void *info);
@@ -119,6 +119,8 @@ long int ibstrace_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			res = -EINVAL;
 			break;
 		}
+
+		//precise_tmp.offset &= (MAX_OFFSET - 1);
 
 		smp_call_function_single_async(TARGET_CPU, &precise_trampoline_csd);
 

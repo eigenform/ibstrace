@@ -7,6 +7,8 @@ pub const CMD_SAMPLES:  usize = 0x0000_4000;
 pub const CMD_CAPACITY: usize = 0x0000_8000;
 pub const CMD_PRECISE:  usize = 0x0002_0000;
 
+pub const MAX_OFFSET:   usize = 0x0010_0000;
+
 #[repr(C)]
 pub struct UserBuf { 
     // Pointer to buffer with user code
@@ -29,6 +31,10 @@ pub struct PreciseArgs {
 }
 impl PreciseArgs {
     pub fn new(ptr: *const u8, offset: usize) -> Self {
+        assert!(offset <= MAX_OFFSET,
+            "Requested offset {} would exceeds maximum offset {}",
+            offset, MAX_OFFSET
+        );
         Self { ptr, offset }
     }
 }
