@@ -33,6 +33,10 @@ use dynasmrt::{
     AssemblyOffset, 
     ExecutableBuffer, 
     x64::X64Relocation,
+    components::{
+        LabelRegistry,
+        StaticLabel,
+    },
 };
 
 // NOP encodings from length 1-15 (single instructions).
@@ -124,12 +128,16 @@ macro_rules! emit_test {
             ; ret
         );
 
-        let tgt_instr_off = match asm.labels().resolve_global("target") {
+        let tgt_instr_off = match asm.labels()
+            .resolve_static(&StaticLabel::global("target")) 
+        {
             Ok(offset) => offset.0,
             Err(e) => panic!("{:?}", e),
         };
 
-        let tgt_instr_end = match asm.labels().resolve_global("target_end") {
+        let tgt_instr_end = match asm.labels()
+            .resolve_static(&StaticLabel::global("target_end") )
+        {
             Ok(offset) => offset.0,
             Err(e) => panic!("{:?}", e),
         };
@@ -189,11 +197,15 @@ macro_rules! emit_test_iters_rsi {
             ; ret
         );
 
-        let tgt_instr_off = match asm.labels().resolve_global("target") {
+        let tgt_instr_off = match asm.labels()
+            .resolve_static(&StaticLabel::global("target")) 
+        {
             Ok(offset) => offset.0,
             Err(e) => panic!("{:?}", e),
         };
-        let tgt_instr_end = match asm.labels().resolve_global("target_end") {
+        let tgt_instr_end = match asm.labels()
+            .resolve_static(&StaticLabel::global("target_end")) 
+        {
             Ok(offset) => offset.0,
             Err(e) => panic!("{:?}", e),
         };

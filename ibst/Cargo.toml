@@ -7,7 +7,7 @@ edition = "2018"
 
 [dependencies]
 nix = { version = "0.29.0", features = ["uio", "sched", "mman", "fs", "feature", "ioctl" ] }
-dynasmrt = "1.0.1"
+dynasmrt = "3.2.0"
 yaxpeax-arch = "0.2.4"
 yaxpeax-x86 = "1.0.3"
 iced-x86 = "1.15.0"

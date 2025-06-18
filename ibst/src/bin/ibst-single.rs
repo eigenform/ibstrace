@@ -4,6 +4,7 @@ use dynasmrt::{
     dynasm, DynasmApi, DynasmLabelApi,
     Assembler, AssemblyOffset, 
     x64::X64Relocation,
+    components::StaticLabel
 };
 use ibst::emit_test_iters_rsi;
 use ibst::codegen::*;
