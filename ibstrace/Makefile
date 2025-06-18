@@ -8,8 +8,5 @@ EXTRA_CFLAGS 	:= -g -I$(CURDIR)/../include -Wundef -DTARGET_CPU=$(CORE)
 prod:
 	$(MAKE) -C $(KMOD_DIR) M=$(CURDIR) CFLAGS="$(CFLAGS)" \
 		EXTRA_CFLAGS="$(EXTRA_CFLAGS)"
-qemu:
-	$(MAKE) -C $(KMOD_DIR) M=$(CURDIR) CFLAGS="$(CFLAGS)" \
-		EXTRA_CFLAGS="$(EXTRA_CFLAGS) -DQEMU_BUILD=1"
 clean:
 	$(MAKE) -C $(KMOD_DIR) M=$(CURDIR) clean

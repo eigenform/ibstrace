@@ -84,7 +84,6 @@ static __init int ibstrace_init(void)
 {
 	int err;
 
-#ifndef QEMU_BUILD
 	// Avoid initializing this module if IBS isn't supported on this machine
 	struct cpuinfo_x86 *info = &boot_cpu_data;
 	if (!(info->x86_vendor == X86_VENDOR_AMD)) {
@@ -95,7 +94,6 @@ static __init int ibstrace_init(void)
 		pr_err("ibstrace: cpuid says IBS isn't supported?\n");
 		return -1;
 	}
-#endif
 
 	// We have to resolve these symbols in order to set pages as executable.
 	// I wonder if there's another way to do this?
@@ -112,7 +110,6 @@ static __init int ibstrace_init(void)
 		return -1;
 	}
 
-#ifndef QEMU_BUILD
 	// Initialize the local APIC for the target CPU
 	smp_call_function_single(TARGET_CPU, ibs_apic_init, NULL, 1);
 	err = register_nmi_handler(NMI_LOCAL, ibs_nmi_handler,
@@ -121,7 +118,6 @@ static __init int ibstrace_init(void)
 		pr_err("ibstrace: register_nmi_handler() returned %d\n", err);
 		return -1;
 	}
-#endif
 
 	// Allocate space for sample data, and for user input.
 	mutex_init(&state.in_use);
@@ -164,10 +160,8 @@ static __exit void ibstrace_exit(void)
 	vfree(state.code_buf);
 	vfree(state.sample_buf);
 
-#ifndef QEMU_BUILD
 	smp_call_function_single(TARGET_CPU, ibs_apic_exit, NULL, 1);
 	unregister_nmi_handler(NMI_LOCAL, "ibstrace");
-#endif 
 
 	misc_deregister(&ibstrace_dev);
 	if (ibstrace_debugfs_dir != NULL) {

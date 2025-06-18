@@ -8,6 +8,6 @@
 *.out
 *.bin
 *.elf
-ibst-rs/target
 data/
+target/
 tmp/

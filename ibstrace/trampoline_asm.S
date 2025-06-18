@@ -21,8 +21,6 @@ SYM_FUNC_START(__trampoline_start)
 	push	r15
 	pushfq
 
-#ifndef QEMU_BUILD
-
 	// Enable sampling with the following operations:
 	//
 	//	- Read IBS_OP_CTL into EDX:EAX
@@ -47,14 +45,12 @@ SYM_FUNC_START(__trampoline_start)
 	rdmsr   
 	or		eax, 0x000a0100
 	wrmsr
-#endif // QEMU_BUILD
 
 	// Call into user code (with some argument in RDI).
 	mov		rax, rdi
 	mov		rdi, rsi
 	call	rax
 
-#ifndef QEMU_BUILD
 	// We might end up clobbering RAX before we return from the trampoline, 
 	// so save the return value from our measured code on the stack.
 	push	rax
@@ -88,7 +84,6 @@ SYM_FUNC_START(__trampoline_start)
 
 	// Restore the return value from user code
 	pop		rax
-#endif // QEMU_BUILD
 
 	popfq
 	pop		r15
