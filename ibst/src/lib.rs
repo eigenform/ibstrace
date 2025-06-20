@@ -165,7 +165,6 @@ pub fn get_base_address() -> Result<usize, &'static str> {
     use std::fs::read_to_string;
     match read_to_string("/sys/kernel/debug/ibstrace/code_buf") {
         Ok(s) => {
-            println!("{}", &s[2..]);
             let x = s[2..].strip_suffix("\n").unwrap();
             Ok(usize::from_str_radix(x, 16).unwrap())
         }
