@@ -3,13 +3,14 @@
 #include <linux/linkage.h>
 #include "msr.h"
 
-.extern __udelay
+#define MAX_CNT		0x00100000
+#define CUR_CNT_MASK	(MAX_CNT - 1)
 
 .intel_syntax noprefix
 
 // Trampoline into the buffer filled with user code.
-// RDI - address to user code (to be executed)
-// RSI - virtual address of some scratch page, passed to user code as RDI
+// RDI - pointer to user code (to be executed)
+// RSI - Argument passed through to user code in RDI
 // RDX - offset to target micro-op
 
 SYM_FUNC_START(__precise_trampoline_start)
@@ -22,23 +23,36 @@ SYM_FUNC_START(__precise_trampoline_start)
 	push	r15
 	pushfq
 
+	// Pointer to user code
+	mov		r15, rdi
+
+	// Argument passed through to user code in RDI
+	mov		rdi, rsi
+	xor		rsi, rsi
+
+	// Mask off any high bits in the offset
 	mov		rbx, rdx
-	and     rbx, 0x000fffff
+	and		rbx, CUR_CNT_MASK
 
-	// Enable IBS in op-sampling mode, max_cnt=0x00100000, cur_cnt=0x00100000-RBX
-	// NOTE: It seems like the last 9 uops in WRMSR can be sampled 
-	// (corresponding offset 0-8)?
-
+	// Input to WRMSR for enabling IBS in op-sampling mode, where: 
+	//	- MAX_CNT is set to 0x00100000
+	//	- CUR_CNT is set to (MAX_CNT - RBX)
 	mov		ecx, IBS_OP_CTL
-	mov     eax, 0x001a0000
-	mov     edx, 0x00100000
-	sub     edx, ebx
+	mov		eax, 0x001a0000
+	mov		edx, MAX_CNT
+	sub		edx, ebx
+	xor		rbx, rbx
+
+SYM_INNER_LABEL(__precise_trampoline_wrmsr, SYM_L_GLOBAL)
+	// Enable IBS, then immediately call into user code. 
+	// NOTE: WRSMR *should* be serializing
+	//mfence
+	//lfence
 	wrmsr 
 
-	// Call into user code (with some argument in RDI).
-	mov		rax, rdi // (offset 9 and 10)?
-	mov		rdi, rsi // (offset 11?)
-	call	rax      // (offset 12 and 13)?
+SYM_INNER_LABEL(__precise_trampoline_call, SYM_L_GLOBAL)
+	call	r15
+	lfence
 
 	// We might end up clobbering RAX before we return from the trampoline, 
 	// so save the return value from our measured code on the stack.
