@@ -9,11 +9,12 @@ pub const CMD_PRECISE:  usize = 0x0002_0000;
 
 pub const MAX_OFFSET:   usize = 0x0010_0000;
 
+/// Argument to [`CMD_WRITE`], used to upload user code. 
 #[repr(C)]
 pub struct UserBuf { 
-    // Pointer to buffer with user code
+    /// Pointer to buffer with user code
     ptr: *const u8, 
-    // Buffer length
+    /// Buffer length
     len: usize,
 }
 impl UserBuf {
@@ -22,11 +23,12 @@ impl UserBuf {
     }
 }
 
+/// Argument to [`CMD_PRECISE`], 
 #[repr(C)]
 pub struct PreciseArgs { 
-    // Pointer to buffer with user code
+    /// Argument passed through to user code (in RDI)
     ptr: *const u8, 
-    // Offset
+    /// Counter offset
     offset: usize,
 }
 impl PreciseArgs {
