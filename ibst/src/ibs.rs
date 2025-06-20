@@ -262,7 +262,7 @@ impl IbsOpData3 {
 /// Representing load/store width values captured by IBS.
 ///
 /// See the IBS_OP_DATA3 entry in the PPR for Family 17h Model 71h.
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 #[repr(usize)]
 pub enum IbsMemWidth {
     None    = 0,
