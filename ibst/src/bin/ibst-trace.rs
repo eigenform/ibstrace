@@ -47,7 +47,12 @@ fn main() -> Result<(), &'static str> {
     let params = emit_test();
 
     // Collect a trace of some range of micro-ops
-    let trace = Trace::collect_from(&params, 0..=128, 0)?;
+    let mut trace = Trace::collect_from(&params, 0..=128, 0)?;
+
+    // Only keep ops associated with RDTSC
+    let base_addr = ibst::get_base_address()?;
+    let tgt_rip = base_addr + params.tgt_instr_off;
+    trace.retain(|e| e.rip == tgt_rip);
 
     // Convenience method for easy output
     trace.print();

@@ -233,6 +233,10 @@ impl Trace {
         self.annotation = s.to_string();
     }
 
+    pub fn retain(&mut self, f: impl Fn(&TraceEntry) -> bool) {
+        self.samples.retain(f);
+    }
+
     pub fn to_json(&self) -> String { 
         use serde_json;
         serde_json::to_string(&self).unwrap()
