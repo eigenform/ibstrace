@@ -14,16 +14,24 @@ use serde::Serialize;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[derive(serde::Serialize)]
 pub struct LdstProps { 
+    lin: usize,
+    phy: usize,
     width: usize,
     locked: bool,
     uc: bool,
     wc: bool,
     swpf: bool,
+    st: bool,
+    ld: bool,
     src: NbDataSrc
 }
 impl LdstProps { 
     pub fn from_sample(s: &Sample) -> Self { 
         Self { 
+            lin: s.linad,
+            phy: s.phyad,
+            ld: s.data3.ld_op(),
+            st: s.data3.st_op(),
             width: s.data3.op_mem_width() as usize,
             locked: s.data3.dc_locked_op(),
             uc: s.data3.dc_uc_mem_acc(),
@@ -33,25 +41,36 @@ impl LdstProps {
         }
     }
 
+    pub fn mnemonic(&self) -> &'static str { 
+        match (self.ld, self.st) { 
+            (false, false) => "??",
+            (true, false)  => "LD",
+            (false, true)  => "ST",
+            (true, true)   => "LS",
+        }
+    }
+
     /// Return a string with the "properties" of this op.
     pub fn as_string(&self) -> String { 
-        let mut res = String::new();
-        res.push_str(&format!("[{:3}b]", self.width));
-        if self.locked { res.push_str("[lock]"); }
-        if self.uc { res.push_str("[uc]"); }
-        if self.wc { res.push_str("[wc]"); }
-        if self.swpf { res.push_str("[swpf]"); }
-        match self.src { 
-            NbDataSrc::Dram => res.push_str("[dram]"),
-            NbDataSrc::Invalid => {},
-            NbDataSrc::Cache => res.push_str("[cache]"),
-            NbDataSrc::Other => res.push_str("[other]"),
-            NbDataSrc::Reserved1 => res.push_str("[res1]"),
-            NbDataSrc::Reserved4 => res.push_str("[res4]"),
-            NbDataSrc::Reserved5 => res.push_str("[res5]"),
-            NbDataSrc::Reserved6 => res.push_str("[res6]"),
-        }
-        res
+        let locked = if self.locked { "[lock]" } else { "" };
+        let uc = if self.uc { "[uc]" } else { "" };
+        let wc = if self.wc { "[uc]" } else { "" };
+        let swpf = if self.swpf { "[swpf]" } else { "" };
+        let src = match self.src { 
+            NbDataSrc::Dram => "[dram]",
+            NbDataSrc::Invalid => "",
+            NbDataSrc::Cache => "[cache]",
+            NbDataSrc::Other => "[other]",
+            NbDataSrc::Reserved1 => "[res1]",
+            NbDataSrc::Reserved4 => "[res4]",
+            NbDataSrc::Reserved5 => "[res5]",
+            NbDataSrc::Reserved6 => "[res6]",
+        };
+        format!("{} {:3}b lin={:016x} phy={:016x} {}{}{}{}{}",
+            self.mnemonic(),
+            self.width, self.lin, self.phy,
+            locked,uc,wc,swpf,src
+        )
     }
 }
 
@@ -64,10 +83,12 @@ pub struct BrnProps {
     taken: bool,
     retrn: bool,
     fused: bool,
+    tgt_rip: usize,
 }
 impl BrnProps {
     pub fn from_sample(s: &Sample) -> Self { 
         Self { 
+            tgt_rip: s.tgt_rip,
             misp: s.data.op_brn_misp(),
             retired: s.data.op_brn_ret(),
             taken: s.data.op_brn_taken(),
@@ -76,109 +97,29 @@ impl BrnProps {
         }
     }
 
+    pub fn mnemonic(&self) -> &'static str { 
+        match (self.fused, self.retrn) { 
+            (false, false) => "BR",
+            (true, false)  => "BR",
+            (false, true)  => "RT",
+            (true, true)   => "RT",
+        }
+    }
+
+
     /// Return a string with the "properties" of this op.
     pub fn as_string(&self) -> String { 
-        let mut res = String::new();
         let miss = if self.misp { "[miss]" } else { "[hit]" };
         let ret = if self.retired { "[retire]" } else { "[specul]" };
         let dir = if self.taken { "[t]" } else { "[nt]" };
-        res.push_str(ret);
-        res.push_str(dir);
-        res.push_str(miss);
-        if self.retrn { 
-            res.push_str("[return]");
-        }
-        if self.fused { 
-            res.push_str("[fused]");
-        }
-        res
+        let retrn = if self.retrn { "[return]" } else { "" };
+        let fused = if self.retrn { "[fused]" } else { "" };
+        format!("{} tgt={:016x} {}{}{}{}{}",
+            self.mnemonic(), self.tgt_rip, miss, ret, dir, retrn, fused
+        )
     }
 }
 
-/// A micro-op corresponding to a [`Sample`] in some [`Trace`]. 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[derive(serde::Serialize)]
-pub enum TraceOp { 
-    /// Load op
-    Ld { lin: usize, phy: usize, prop: LdstProps },
-
-    /// Store op
-    St { lin: usize, phy: usize, prop: LdstProps },
-
-    /// Load/Store op
-    Ldst { lin: usize, phy: usize, prop: LdstProps },
-
-    /// Branch op
-    Brn { prop: BrnProps },
-
-    /// Register op
-    Reg { },
-
-}
-impl TraceOp { 
-    /// Create a [`TraceOp`] from the given `ibstrace` [`Sample`].
-    pub fn from_sample(s: &Sample) -> Self { 
-        let is_st = s.data3.st_op();
-        let is_ld = s.data3.ld_op();
-        let is_brn = (
-            s.data.op_brn_fuse() ||
-            s.data.op_brn_ret() ||
-            s.data.op_return() ||
-            s.data.op_brn_misp() ||
-            s.data.op_brn_taken()
-        );
-
-        match (is_ld, is_st) {
-            (false, false) => {},
-            (false, true) => {
-                let prop = LdstProps::from_sample(s);
-                return Self::St { lin: s.linad, phy: s.phyad, prop };
-            },
-            (true, false) => {
-                let prop = LdstProps::from_sample(s);
-                return Self::Ld { lin: s.linad, phy: s.phyad, prop };
-            },
-            (true, true) => {
-                let prop = LdstProps::from_sample(s);
-                return Self::Ldst { lin: s.linad, phy: s.phyad, prop };
-            },
-        }
-        if is_brn { 
-            let prop = BrnProps::from_sample(s);
-            Self::Brn { prop }
-        } else { 
-            Self::Reg { }
-        }
-    }
-
-    /// Return the "mnemonic" for this op.
-    pub fn mnemonic(&self) -> &'static str { 
-        match self { 
-            Self::Ld{ .. }   => "LD",
-            Self::St{ .. }   => "ST",
-            Self::Ldst{ .. } => "LS",
-            Self::Reg { }     => "RG",
-            Self::Brn { .. }  => "BR",
-        }
-    }
-
-    /// Return a string with the "properties" of this op.
-    pub fn propstring(&self) -> String { 
-        let mut res = String::new();
-        match self { 
-            Self::Reg {} => {},
-            Self::Ld { lin, phy, prop } |
-            Self::St { lin, phy, prop } |
-            Self::Ldst { lin, phy, prop } => { 
-                res = prop.as_string();
-            },
-            Self::Brn { prop } => {
-                res = prop.as_string();
-            },
-        }
-        res
-    }
-}
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[derive(serde::Serialize)]
@@ -188,7 +129,53 @@ pub struct TraceEntry {
     pub tag_to_retire: usize,
     pub complete_to_retire: usize,
     pub ucode: bool,
-    pub op: TraceOp,
+    pub ldst_props: Option<LdstProps>,
+    pub brn_props: Option<BrnProps>,
+}
+impl TraceEntry { 
+    pub fn from_sample(offset: usize, s: &Sample) -> Self { 
+
+        let rip = s.rip;
+        let tag_to_retire = s.data.tag_to_ret_ctr();
+        let complete_to_retire = s.data.comp_to_ret_ctr();
+        let ucode = s.data.op_microcode();
+
+        let has_ldst = (
+            (s.data3.st_op() || s.data3.ld_op())
+        );
+
+        let has_brn = (
+            (s.data.op_brn_fuse() ||
+            s.data.op_brn_ret() ||
+            s.data.op_return() ||
+            s.data.op_brn_misp() ||
+            s.data.op_brn_taken())
+        );
+
+
+        let ldst_props = if has_ldst {
+            Some(LdstProps::from_sample(s))
+        } else { 
+            None
+        };
+
+        let brn_props = if has_brn {
+            Some(BrnProps::from_sample(s))
+        } else { 
+            None
+        };
+
+
+        Self {
+            offset,
+            rip,
+            tag_to_retire,
+            complete_to_retire,
+            ucode,
+            ldst_props,
+            brn_props,
+        }
+    }
 }
 
 
@@ -228,14 +215,7 @@ impl Trace {
                 PreciseArgs::new(rdi_val, offset)
             );
             if !res.is_empty() {
-                let entry = TraceEntry { 
-                    offset: offset,
-                    rip: res[0].rip,
-                    tag_to_retire: res[0].data.tag_to_ret_ctr(),
-                    complete_to_retire: res[0].data.comp_to_ret_ctr(),
-                    ucode: res[0].data.op_microcode(),
-                    op: TraceOp::from_sample(&res[0]),
-                };
+                let entry = TraceEntry::from_sample(offset, &res[0]);
                 samples.push(entry);
             }
         }
@@ -263,42 +243,29 @@ impl Trace {
             println!("[*] Trace '{}'", self.annotation);
         }
         println!("[*] Target RIP: {:016x}", self.target_rip);
-        for sample in &self.samples { 
+        for entry in &self.samples { 
 
             // Tag-to-complete cycles
-            let t2c = sample.tag_to_retire - sample.complete_to_retire;
+            let t2c = entry.tag_to_retire - entry.complete_to_retire;
 
-            match sample.op {
-                TraceOp::Ld { lin, phy, prop } |
-                TraceOp::St { lin, phy, prop } |
-                TraceOp::Ldst { lin, phy, prop } => { 
-                    println!("  {:08} {:016x} {} t2c={:05} lin={:016x} phy={:016x} {}", 
-                        sample.offset, 
-                        sample.rip,
-                        sample.op.mnemonic(), 
-                        t2c, lin, phy, 
-                        prop.as_string()
-                    );
-                },
-                TraceOp::Reg {} => { 
-                    println!("  {:08} {:016x} {} t2c={:05} {}", 
-                        sample.offset, 
-                        sample.rip,
-                        sample.op.mnemonic(), 
-                        t2c, 
-                        ""
-                    );
-                },
-                TraceOp::Brn{ prop } => {
-                    println!("  {:08} {:016x} {} t2c={:05} {}", 
-                        sample.offset, 
-                        sample.rip,
-                        sample.op.mnemonic(), 
-                        t2c, 
-                        prop.as_string()
-                    );
-                },
-            }
+            let lprops = if let Some(p) = entry.ldst_props {
+                p.as_string()
+            } else { 
+                "".to_string()
+            };
+            let bprops = if let Some(p) = entry.brn_props {
+                p.as_string()
+            } else { 
+                "".to_string()
+            };
+
+            println!("  {:08} {:016x} t2c={:05} {} {}",
+                entry.offset,
+                entry.rip,
+                t2c, 
+                lprops,
+                bprops
+            );
         }
     }
 }
