@@ -10,14 +10,16 @@ pub mod util;
 pub mod ioctl;
 pub mod analysis;
 pub mod msr; 
+pub mod trace; 
 
 use std::hash::{Hash, Hasher};
 
 /// A sample taken by the `ibstrace` kernel module.
 ///
-/// WARNING: This struct mirrors the original definition in C code, see 
+/// WARNING: This struct must mirror the original definition in C code, see 
 /// `ibstrace/ibstrace.h` in the source code for the `ibstrace` kernel module.
 #[derive(Clone, Default, Ord, PartialOrd)]
+#[derive(serde::Serialize)]
 #[repr(C)]
 pub struct Sample {
     /// IBS OP sampling status register (IBS_OP_CTL).
@@ -88,7 +90,8 @@ nix::ioctl_write_ptr_bad! {
 }
 
 nix::ioctl_write_ptr_bad! {
-    /// Execute submitted user code in the "precise" environment. 
+    /// Execute submitted user code in the "precise" environment, collecting
+    /// a single sample of a particular micro-op. 
     /// Takes a pointer to a [PreciseArgs] describing the arguments.
     ibstrace_precise, ioctl::CMD_PRECISE, ioctl::PreciseArgs
 }
@@ -172,7 +175,7 @@ pub fn get_base_address() -> Result<usize, &'static str> {
     }
 }
 
-/// Execute and sample some code, returning a [Box] of [Sample] data.
+/// Upload and sample user code, returning a [Box] of [Sample] data.
 pub fn measure(fd: i32, msg: &ioctl::UserBuf) -> Box<[Sample]> {
     unsafe { 
         match ibstrace_write(fd, msg as *const ioctl::UserBuf) {
@@ -199,7 +202,8 @@ pub fn measure(fd: i32, msg: &ioctl::UserBuf) -> Box<[Sample]> {
     }
 }
 
-/// Execute and sample some code, returning a [Box] of [Sample] data.
+/// Upload and sample a particular micro-op in user code, returning a [Box] 
+/// of [Sample] data.
 pub fn measure_precise(fd: i32, msg: &ioctl::UserBuf, arg: &ioctl::PreciseArgs) 
     -> Box<[Sample]> 
 {

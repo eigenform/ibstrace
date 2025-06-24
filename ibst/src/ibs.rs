@@ -7,9 +7,11 @@
 //! samples.
 
 use std::hash::{Hash, Hasher};
+use serde; 
 
 /// MSRC001_1033 [IBS Execution Control] (Core::X86::Msr::IBS_OP_CTL)
 #[derive(Clone, Copy, Default, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(serde::Serialize)]
 #[repr(transparent)]
 pub struct IbsOpCtl(pub usize);
 impl IbsOpCtl {
@@ -24,6 +26,7 @@ impl IbsOpCtl {
 
 /// MSRC001_1035 [IBS Op Data] (Core::X86::Msr::IBS_OP_DATA)
 #[derive(Clone, Copy, Default, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(serde::Serialize)]
 #[repr(transparent)]
 pub struct IbsOpData(pub usize);
 impl IbsOpData {
@@ -64,6 +67,8 @@ impl IbsOpData {
     pub fn rip_invalid(&self) -> bool { 
         (self.0 & Self::RIP_INVALID_BIT) != 0 
     }
+
+    /// Retired branch
     pub fn op_brn_ret(&self) -> bool { 
         (self.0 & Self::OP_BRN_RET_BIT) != 0 
     }
@@ -100,6 +105,7 @@ impl std::fmt::Debug for IbsOpData {
 
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug, Hash)]
+#[derive(serde::Serialize)]
 pub enum NbDataSrc {
     Invalid,
     Reserved1,
@@ -128,6 +134,7 @@ impl From<usize> for NbDataSrc{
 
 /// MSRC001_1036 [IBS Op Data 2] (Core::X86::Msr::IBS_OP_DATA2)
 #[derive(Clone, Copy, Default, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(serde::Serialize)]
 #[repr(transparent)]
 pub struct IbsOpData2(pub usize);
 impl IbsOpData2 {
@@ -147,6 +154,7 @@ impl IbsOpData2 {
 
 /// MSRC001_1037 [IBS Op Data 3] (Core::X86::Msr::IBS_OP_DATA3)
 #[derive(Clone, Copy, Default, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(serde::Serialize)]
 #[repr(transparent)]
 pub struct IbsOpData3(pub usize);
 impl IbsOpData3 {

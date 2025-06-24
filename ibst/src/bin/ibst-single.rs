@@ -13,10 +13,7 @@ use ibst::analysis::*;
 use ibst::Sample;
 use std::collections::{HashMap, BTreeSet, BTreeMap};
 
-const RDPRU: [u8; 3] = [ 0x0f, 0x01, 0xfd ];
-const WBNOINVD: [u8; 3] = [ 0xf3, 0x0f, 0x09];
-const RDSSPQ_RAX: [u8; 5] = [ 0xf3, 0x48, 0x0f, 0x1e, 0xc8 ];
-
+/// Emit some code we want to measure
 fn emit_test(val: u32, iters: usize) -> TestParameters {
     emit_test_iters_rsi!(iters,
         ; xor rax, rax
@@ -31,6 +28,7 @@ fn main() -> Result<(), &'static str> {
     let base_addr = ibst::get_base_address()?;
     let fd = ibst::ibstrace_open()?;
 
+    // Emit measured code
     let params = emit_test(0, 0x100000);
 
     // Get the range of program counter values associated with measured code.
@@ -42,8 +40,11 @@ fn main() -> Result<(), &'static str> {
     println!("[*] target_start: {:016x}", target_start);
     println!("[*] target_end:   {:016x}", target_end);
 
+    // Upload measured code and use the "measure" ioctl() to collect samples
     let res = run_test(fd, params);
     println!("[*] Collected {} samples", res.result.len());
+
+    // Print sampled load/store ops for RDTSC
     print_load_lat_dist(&res.result, target_start);
 
     let mut by_pc: BTreeMap<usize, BTreeSet<SampleInfo>> = BTreeMap::new();

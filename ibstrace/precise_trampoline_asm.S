@@ -43,11 +43,12 @@ SYM_FUNC_START(__precise_trampoline_start)
 	sub		edx, ebx
 	xor		rbx, rbx
 
-SYM_INNER_LABEL(__precise_trampoline_wrmsr, SYM_L_GLOBAL)
 	// Enable IBS, then immediately call into user code. 
-	// NOTE: WRSMR *should* be serializing
-	//mfence
-	//lfence
+	// NOTE: WRSMR *should* already be serializing. 
+	// NOTE: In order to actually recover a trace, it's important that the path 
+	// between WRMSR and user code is very short and ideally *deterministic*.
+	// In our case, the indirect CALL to user code is necessary and sufficient.
+SYM_INNER_LABEL(__precise_trampoline_wrmsr, SYM_L_GLOBAL)
 	wrmsr 
 
 SYM_INNER_LABEL(__precise_trampoline_call, SYM_L_GLOBAL)

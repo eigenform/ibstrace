@@ -82,13 +82,15 @@ pub struct TestResult {
     pub result: Box<[Sample]>,
 }
 
-/// Given some [TestParameters], submit a test and return the results.
+/// Given some [TestParameters], sample user code and return the results.
 pub fn run_test(fd: i32, params: TestParameters) -> TestResult {
     let msg = params.to_userbuf();
     let result = crate::measure(fd, &msg);
     TestResult { params, result }
 }
 
+/// Given some [TestParameters], sample a particular micro-op in user code 
+/// and return the result. 
 pub fn run_precise_test(
     fd: i32, 
     params: &TestParameters,
