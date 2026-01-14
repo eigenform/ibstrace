@@ -179,15 +179,30 @@ impl IbsOpData3 {
     const DC_UC_MEM_ACC_BIT:    usize = 0x0000_0000_0000_4000;
     const DC_WC_MEM_ACC_BIT:    usize = 0x0000_0000_0000_2000;
 
+    // NOTE: Seemingly defined in uProf ..
     const RES_12_9_MASK:        usize = 0x0000_0000_0000_1e00;
+    const CANCELLED:            usize = 0x0000_0000_0000_1000;
+    const FORWARDED:            usize = 0x0000_0000_0000_0800;
+    const BANK_CONF_ST_BIT:     usize = 0x0000_0000_0000_0400;
+    const BANK_CONF_LD_BIT:     usize = 0x0000_0000_0000_0200;
 
     const DC_MIS_ACC_BIT:       usize = 0x0000_0000_0000_0100;
     const DC_MISS_BIT:          usize = 0x0000_0000_0000_0080;
+
     const DC_L2TLB_HIT_2M_BIT:  usize = 0x0000_0000_0000_0040;
+
+    // NOTE: Valid when physaddr is valid? 
+    // NOTE: 19h PPR says this is a 2-bit field
+    //  - 0b00 - 4K
+    //  - 0b01 - 2M
+    //  - 0b10 - 1G
+    //  - 0b11 - Reserved
     const DC_L1TLB_HIT_1G_BIT:  usize = 0x0000_0000_0000_0020;
     const DC_L1TLB_HIT_2M_BIT:  usize = 0x0000_0000_0000_0010;
+
     const DC_L2TLB_MISS_BIT:    usize = 0x0000_0000_0000_0008;
     const DC_L1TLB_MISS_BIT:    usize = 0x0000_0000_0000_0004;
+
     const ST_OP_BIT:            usize = 0x0000_0000_0000_0002;
     const LD_OP_BIT:            usize = 0x0000_0000_0000_0001;
 

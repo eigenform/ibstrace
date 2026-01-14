@@ -22,7 +22,8 @@
 // ioctl() command: execute and sample a particular op in user code
 #define IBSTRACE_CMD_PRECISE		0x00020000
 
-#define MAX_OFFSET                  0x00100000
+// In precise mode, this is the maximum supported offset of a sample. 
+#define MAX_OFFSET                  0x00400000
 
 // Arguments passed to IBSTRACE_CMD_WRITE 
 struct ibstrace_msg {

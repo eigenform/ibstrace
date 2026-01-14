@@ -19,7 +19,7 @@ pub const CMD_PRECISE:  usize = 0x0002_0000;
 
 /// The maximum supported offset in "precise" sampling mode. 
 /// NOTE: This is also defined as a constant in the kernel module. 
-pub const MAX_OFFSET:   usize = 0x0010_0000;
+pub const MAX_OFFSET:   usize = 0x0040_0000;
 
 /// Argument to [`CMD_WRITE`], used to upload user code. 
 #[repr(C)]
