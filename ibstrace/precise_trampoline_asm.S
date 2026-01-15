@@ -3,8 +3,9 @@
 #include <linux/linkage.h>
 #include "msr.h"
 
-#define MAX_CNT		0x00100000
-#define CUR_CNT_MASK	(MAX_CNT - 1)
+
+#define MAX_OFFSET		0x00400000
+#define CUR_CNT_MASK	(MAX_OFFSET - 1)
 
 .intel_syntax noprefix
 
@@ -35,11 +36,11 @@ SYM_FUNC_START(__precise_trampoline_start)
 	and		rbx, CUR_CNT_MASK
 
 	// Input to WRMSR for enabling IBS in op-sampling mode, where: 
-	//	- MAX_CNT is set to 0x00100000
-	//	- CUR_CNT is set to (MAX_CNT - RBX)
+	//	- MAX_CNT is set to MAX_OFFSET
+	//	- CUR_CNT is set to (MAX_OFFSET - RBX)
 	mov		ecx, IBS_OP_CTL
 	mov		eax, 0x001a0000
-	mov		edx, MAX_CNT
+	mov		edx, MAX_OFFSET
 	sub		edx, ebx
 	xor		rbx, rbx
 
