@@ -10,6 +10,6 @@ ifndef CORE
 	$(error Must define target core, ie. 'make prod CORE=15')
 endif
 	@echo "# Building ibstrace kernel module ... "
-	$(MAKE) -C ibstrace/ prod CORE=$(CORE)
+	$(MAKE) V=1 -C ibstrace/ prod CORE=$(CORE)
 clean:
-	$(MAKE) -C ibstrace/ clean
+	$(MAKE) V=1 -C ibstrace/ clean
