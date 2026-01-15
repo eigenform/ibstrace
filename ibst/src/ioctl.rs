@@ -18,7 +18,9 @@ pub const CMD_CAPACITY: usize = 0x0000_8000;
 pub const CMD_PRECISE:  usize = 0x0002_0000;
 
 /// The maximum supported offset in "precise" sampling mode. 
+///
 /// NOTE: This is also defined as a constant in the kernel module. 
+/// This *must* match the definition in `include/asm/ibstrace_asm.h`. 
 pub const MAX_OFFSET:   usize = 0x0040_0000;
 
 /// Argument to [`CMD_WRITE`], used to upload user code. 

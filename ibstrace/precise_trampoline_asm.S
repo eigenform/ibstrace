@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0
 
 #include <linux/linkage.h>
+#include <ibstrace_asm.h>
 #include "msr.h"
 
-
-#define MAX_OFFSET		0x00400000
-#define CUR_CNT_MASK	(MAX_OFFSET - 1)
+#define CUR_CNT_MASK		(MAX_OFFSET - 1)
+#define MAX_OFFSET_26_20	(MAX_OFFSET & 0x03f00000)
+#define MAX_OFFSET_19_04	(MAX_OFFSET & 0x000ffff0)
+#define IBS_OP_CTL_EAX		(MAX_OFFSET_26_20 | IBS_OP_CNT_CTL | IBS_OP_EN)
 
 .intel_syntax noprefix
 
@@ -36,10 +38,10 @@ SYM_FUNC_START(__precise_trampoline_start)
 	and		rbx, CUR_CNT_MASK
 
 	// Input to WRMSR for enabling IBS in op-sampling mode, where: 
-	//	- MAX_CNT is set to MAX_OFFSET
-	//	- CUR_CNT is set to (MAX_OFFSET - RBX)
+	//	- MAX_CNT (in EAX) is set to MAX_OFFSET
+	//	- CUR_CNT (in EDX) is set to (MAX_OFFSET - EBX), where EBX is the requested offset
 	mov		ecx, IBS_OP_CTL
-	mov		eax, 0x001a0000
+	mov		eax, IBS_OP_CTL_EAX
 	mov		edx, MAX_OFFSET
 	sub		edx, ebx
 	xor		rbx, rbx
