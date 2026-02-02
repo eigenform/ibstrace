@@ -9,6 +9,9 @@
 #include "state.h"
 #include "msr.h"
 
+// FIXME: Consider saving the return value from measured code so we can send 
+// it back to userspace
+
 extern struct ibstrace_state state;
 
 int __trampoline_start(void *code_ptr, void *scratch_page_vaddr);

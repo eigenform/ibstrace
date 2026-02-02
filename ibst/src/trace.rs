@@ -14,16 +14,16 @@ use serde::Serialize;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[derive(serde::Serialize)]
 pub struct LdstProps { 
-    lin: usize,
-    phy: usize,
-    width: usize,
-    locked: bool,
-    uc: bool,
-    wc: bool,
-    swpf: bool,
-    st: bool,
-    ld: bool,
-    src: NbDataSrc
+    pub lin: usize,
+    pub phy: usize,
+    pub width: usize,
+    pub locked: bool,
+    pub uc: bool,
+    pub wc: bool,
+    pub swpf: bool,
+    pub st: bool,
+    pub ld: bool,
+    pub src: NbDataSrc
 }
 impl LdstProps { 
     pub fn from_sample(s: &Sample) -> Self { 
@@ -78,12 +78,12 @@ impl LdstProps {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[derive(serde::Serialize)]
 pub struct BrnProps {
-    misp: bool,
-    retired: bool,
-    taken: bool,
-    retrn: bool,
-    fused: bool,
-    tgt_rip: usize,
+    pub misp: bool,
+    pub retired: bool,
+    pub taken: bool,
+    pub retrn: bool,
+    pub fused: bool,
+    pub tgt_rip: usize,
 }
 impl BrnProps {
     pub fn from_sample(s: &Sample) -> Self { 
