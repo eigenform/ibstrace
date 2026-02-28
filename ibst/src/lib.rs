@@ -175,6 +175,31 @@ pub fn get_base_address() -> Result<usize, &'static str> {
     }
 }
 
+/// Return the physical address of the scratch page.
+pub fn get_scratch_page_paddr() -> Result<usize, &'static str> {
+    use std::fs::read_to_string;
+    match read_to_string("/sys/kernel/debug/ibstrace/scratch_page_paddr") {
+        Ok(s) => {
+            let x = s[2..].strip_suffix("\n").unwrap();
+            Ok(usize::from_str_radix(x, 16).unwrap())
+        }
+        Err(e) => panic!("Couldn't read ibstrace base address? - {}", e),
+    }
+}
+
+pub fn get_scratch_page() -> Result<usize, &'static str> {
+    use std::fs::read_to_string;
+    match read_to_string("/sys/kernel/debug/ibstrace/scratch_page") {
+        Ok(s) => {
+            let x = s[2..].strip_suffix("\n").unwrap();
+            Ok(usize::from_str_radix(x, 16).unwrap())
+        }
+        Err(e) => panic!("Couldn't read ibstrace base address? - {}", e),
+    }
+}
+
+
+
 /// Upload and sample user code, returning a [Box] of [Sample] data.
 pub fn measure(fd: i32, msg: &ioctl::UserBuf) -> Box<[Sample]> {
     unsafe { 
